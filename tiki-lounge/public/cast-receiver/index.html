@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Lagoon Lounge</title>
+    <link
+      rel="stylesheet"
+      href="/cast-receiver/receiver.css?v=20260724-ts1"
+    />
+  </head>
+  <body data-theme="night">
+    <video
+      id="castMedia"
+      class="castMediaElement"
+      preload="auto"
+      playsinline
+      poster="/images/midnight-lagoon.webp"
+      aria-hidden="true"
+    ></video>
+
+    <div class="atmosphere" aria-hidden="true">
+      <div class="themeWash themeWashNight"></div>
+      <div class="themeWash themeWashDay"></div>
+      <div class="themeTransition"></div>
+      <div class="edgeVignette"></div>
+    </div>
+
+    <div class="receiverMark" aria-hidden="true">
+      <span class="receiverMonogram">L</span>
+      <span class="receiverName">Lagoon Lounge</span>
+    </div>
+
+    <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+    <script src="/cast-receiver/receiver.js?v=20260724-ts1"></script>
+  </body>
+</html>

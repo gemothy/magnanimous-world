@@ -1,0 +1,12 @@
+{
+  "name": "magnanimis-lounge-party",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.mjs",
+    "test": "node server/test-game.mjs"
+  },
+  "dependencies": { "ws": "^8.18.0" },
+  "engines": { "node": ">=20" }
+}

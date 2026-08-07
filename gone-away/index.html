@@ -1,0 +1,3150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Gone Away — The Lounge</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#e8c48a; --bone:#f2e6d0;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#050a10;
+    font-family:'Jost',system-ui,sans-serif;color:var(--bone);
+    user-select:none;-webkit-user-select:none;touch-action:none}
+  canvas{position:fixed;inset:0;display:block;touch-action:none}
+
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:3;
+    background:radial-gradient(ellipse at 50% 52%, transparent 40%, rgba(4,8,14,.75) 100%)}
+  #grain{position:fixed;inset:-50%;pointer-events:none;z-index:4;opacity:.03;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation:none}
+  @keyframes gr{0%{transform:translate(0,0)}33%{transform:translate(-3%,2%)}66%{transform:translate(2%,-3%)}100%{transform:translate(0,0)}}
+
+  #reticle{position:fixed;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;
+    background:rgba(242,230,208,.42);z-index:5;pointer-events:none;transition:opacity .3s,transform .2s;
+    box-shadow:0 0 6px rgba(0,0,0,.9)}
+  #reticle.hot{transform:scale(1.9);background:rgba(232,196,138,.95)}
+  #prompt{position:fixed;left:50%;top:calc(50% + 30px);transform:translateX(-50%);z-index:6;
+    font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    opacity:0;transition:opacity .18s;pointer-events:none;
+    text-shadow:0 1px 8px rgba(0,0,0,.95);white-space:nowrap}
+  #prompt b{color:var(--gold);font-weight:400}
+  #note{position:fixed;left:50%;bottom:11%;transform:translateX(-50%);z-index:6;
+    font-size:clamp(14px,2vw,18px);font-weight:200;letter-spacing:.1em;opacity:0;
+    transition:opacity 1.1s;pointer-events:none;text-shadow:0 2px 14px rgba(0,0,0,.95);text-align:center;
+    white-space:pre-line;line-height:1.9}
+  #note .meta{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:rgba(232,196,138,.85)}
+
+  /* The room stays visible behind the title but is dimmed hard. At the old opacity the
+     firepit sat directly behind the subtitle and the type had nothing clean to sit on —
+     a menu needs a quiet field far more than it needs to show off the scene. */
+  .screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;
+    background:
+      radial-gradient(ellipse at 50% 46%, rgba(5,9,15,.62), rgba(3,6,11,.93) 62%),
+      linear-gradient(180deg, rgba(3,6,11,.55), rgba(3,6,11,.30) 40%, rgba(3,6,11,.8))}
+  .title{font-weight:200;font-size:clamp(34px,8vw,88px);letter-spacing:.36em;
+    text-indent:.36em;line-height:1;text-shadow:0 0 70px rgba(169,198,232,.3)}
+  .rule{width:min(58vw,400px);height:1px;margin:24px 0 18px;
+    background:linear-gradient(90deg,transparent,rgba(232,196,138,.75),transparent)}
+  .sub{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);opacity:.9}
+  .enter{pointer-events:auto;cursor:pointer;font-family:'Jost',sans-serif;
+    font-weight:300;font-size:13px;letter-spacing:.34em;text-transform:uppercase;color:var(--bone);
+    background:transparent;border:1px solid rgba(242,230,208,.34);border-radius:1px;padding:15px 44px;
+    transition:background .4s ease,border-color .4s ease,letter-spacing .4s ease}
+  .enter:hover{background:rgba(242,230,208,.07);border-color:rgba(232,196,138,.85);letter-spacing:.40em}
+  .acts{margin-top:54px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+
+  /* Settings, folded away behind one quiet word. */
+  #prefsToggle{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:22;
+    pointer-events:auto;cursor:pointer;background:none;border:0;
+    font-family:var(--mono);font-size:9px;letter-spacing:.34em;text-transform:uppercase;
+    color:rgba(242,230,208,.3);transition:color .4s ease}
+  #prefsToggle:hover{color:rgba(232,196,138,.85)}
+  #prefs{max-height:0;overflow:hidden;opacity:0;pointer-events:none;
+    transition:max-height .6s cubic-bezier(.16,1,.3,1),opacity .5s ease,margin .6s ease}
+  #prefs.open{max-height:180px;opacity:1;pointer-events:auto;margin-top:34px}
+  .opts{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:center;
+    font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:rgba(242,230,208,.55);pointer-events:auto}
+
+  /* Control hints: taught once on entry, then gone for good. */
+  #tutor{position:fixed;left:50%;bottom:9%;transform:translateX(-50%);z-index:8;
+    font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+    color:rgba(242,230,208,.42);white-space:nowrap;pointer-events:none;opacity:0;
+    transition:opacity 1.4s ease;text-shadow:0 2px 14px rgba(0,0,0,.95)}
+  #tutor span{color:var(--gold)}
+  #tutor.on{opacity:1}
+  .opts label{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .opts input[type=range]{width:110px;accent-color:#e8c48a}
+  .opts input[type=checkbox]{accent-color:#e8c48a}
+  .load{margin-top:26px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    color:rgba(242,230,208,.4);text-transform:uppercase}
+  .load label{cursor:pointer;pointer-events:auto;border-bottom:1px dotted rgba(232,196,138,.6);color:var(--gold)}
+  .load input{display:none}
+  #pause{display:none}
+  #pause .title{font-size:clamp(18px,3vw,28px);letter-spacing:.34em}
+  #drop{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
+    background:rgba(4,8,14,.88);font-family:var(--mono);font-size:12px;letter-spacing:.26em;
+    text-transform:uppercase;color:var(--gold)}
+  #err{position:fixed;left:0;right:0;bottom:0;z-index:50;display:none;padding:14px 18px;
+    background:rgba(60,10,10,.94);font-family:var(--mono);font-size:11px;line-height:1.6;
+    letter-spacing:.06em;color:#ffd9c0;word-break:break-word}
+  #rotate{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:18px;background:rgba(5,10,16,.96);font-family:var(--mono);
+    font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);text-align:center;padding:30px}
+  #rotate svg{width:52px;height:52px;stroke:var(--gold);fill:none;stroke-width:1.5}
+  #loading{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+    background:#050a10;font-family:var(--mono);font-size:11px;letter-spacing:.3em;
+    text-transform:uppercase;color:rgba(242,230,208,.55)}
+
+  /* ---------------- teaser / attract mode ---------------- */
+  /* Anamorphic bars. The pitch asks for an anamorphic lens and 16:9 stills; letterboxing
+     to 2.39 is the cheapest, strongest signal that what you are watching is a film. */
+  .bar{position:fixed;left:0;right:0;height:0;background:#000;z-index:12;pointer-events:none;
+    transition:height 1.1s cubic-bezier(.16,1,.3,1)}
+  #barT{top:0} #barB{bottom:0}
+  body.cine #barT, body.cine #barB{height:calc((100vh - (100vw / 2.39)) / 2)}
+  body.cine #reticle, body.cine #prompt{opacity:0 !important}
+
+  /* Caption: one restrained line at a time, low in frame, mid-century and quiet. */
+  #cap{position:fixed;left:50%;transform:translateX(-50%);bottom:16.5%;z-index:14;
+    width:min(78vw,860px);text-align:center;pointer-events:none;
+    font-weight:200;font-size:clamp(16px,2.3vw,27px);line-height:1.5;letter-spacing:.055em;
+    color:var(--bone);text-shadow:0 2px 26px rgba(0,0,0,.98),0 0 70px rgba(0,0,0,.7);
+    opacity:0;transition:opacity 1.5s ease}
+  #cap.on{opacity:1}
+
+  /* Title card, per the pitch's tenth prompt: thin mid-century film lettering,
+     restrained, floating over dark water. */
+  /* Sits above centre: the horizon and the moon's path own the lower half of frame, and
+     the subtitle used to land directly on the island silhouette where it vanished. */
+  #card{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;pointer-events:none;opacity:0;
+    padding-bottom:19vh;transition:opacity 2.4s ease}
+  #card.on{opacity:1}
+  #card .ct{font-weight:200;font-size:clamp(38px,9.5vw,132px);letter-spacing:.42em;
+    text-indent:.42em;line-height:1;color:#f4ead8;
+    text-shadow:0 0 90px rgba(169,198,232,.34),0 2px 40px rgba(0,0,0,.9)}
+  #card .cr{width:min(46vw,340px);height:1px;margin:30px 0 18px;
+    background:linear-gradient(90deg,transparent,rgba(232,196,138,.85),transparent);
+    box-shadow:0 0 16px rgba(0,0,0,.8)}
+  #card .cs{font-family:var(--mono);font-size:clamp(9px,1.15vw,12px);letter-spacing:.44em;
+    text-transform:uppercase;color:rgba(240,214,168,.96);
+    text-shadow:0 1px 18px rgba(0,0,0,1),0 0 44px rgba(0,0,0,.9)}
+
+  /* Fade-to-black, used for the opening and between the hard cuts. Starts transparent —
+     at opacity 1 it sat over the title screen and hid the room behind it. Teaser.start()
+     raises it so the reel can open out of black. */
+  #fade{position:fixed;inset:0;z-index:13;background:#000;pointer-events:none;opacity:0;
+    transition:opacity 1.6s ease}
+
+  .enter.ghost{border-color:rgba(242,230,208,.2);color:rgba(242,230,208,.66)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vig"></div>
+<div id="grain"></div>
+<div id="reticle"></div>
+<div id="prompt"></div>
+<div id="note"></div>
+
+<div id="start" class="screen" style="display:none">
+  <div class="title">GONE AWAY</div>
+  <div class="rule"></div>
+  <div class="sub">The Magnanimis Resort</div>
+  <div class="acts">
+    <button class="enter" id="teaserBtn">Teaser</button>
+    <button class="enter ghost" id="enterBtn">Enter</button>
+  </div>
+  <!-- Everything below is deliberately out of the way. A title screen that lists its
+       own keybindings, its soundtrack length and four tuning sliders reads as a dev
+       build; the controls are taught on entry instead, and the rest lives behind one
+       quiet word. -->
+  <button id="prefsToggle">Settings</button>
+  <div id="prefs">
+    <div class="opts">
+      <label><input type="checkbox" id="optBob"> Head bob</label>
+      <label><input type="checkbox" id="optGrain" checked> Film grain</label>
+      <label>View <input type="range" id="optFov" min="70" max="105" value="85"></label>
+      <label>Look <input type="range" id="optSens" min="40" max="180" value="100"></label>
+    </div>
+    <div class="load">
+      <span id="libInfo">&nbsp;</span> &nbsp;·&nbsp;
+      <label>use your own record<input type="file" id="musicFile" accept="audio/*"></label>
+    </div>
+  </div>
+</div>
+
+<!-- Shown once, on entering the lounge, then it fades and does not come back. -->
+<div id="tutor">
+  <span>WASD</span> walk &nbsp;&nbsp; <span>Mouse</span> look &nbsp;&nbsp;
+  <span>E</span> interact &nbsp;&nbsp; <span>Esc</span> release
+</div>
+
+<div id="pause" class="screen">
+  <div class="title">PAUSED</div>
+  <div class="rule"></div>
+  <button class="enter" id="resumeBtn">Resume</button>
+</div>
+
+<div id="barT" class="bar"></div>
+<div id="barB" class="bar"></div>
+<div id="cap"></div>
+<div id="card">
+  <div class="ct">GONE AWAY</div>
+  <div class="cr"></div>
+  <div class="cs">The Magnanimis Resort</div>
+</div>
+<div id="fade"></div>
+
+<div id="drop">Drop to load the record</div>
+<div id="rotate">
+  <svg viewBox="0 0 48 48"><rect x="14" y="6" width="20" height="36" rx="3"/><path d="M8 30a16 16 0 0 0 32 0"/></svg>
+  Turn your device sideways
+</div>
+<div id="err"></div>
+<div id="loading">Building the island…</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Post-processing. r128 still ships these as plain globals, so they attach to THREE
+     without a module step. Every one of them is optional: if the CDN is unreachable the
+     scene falls back to rendering straight to the canvas (see COMPOSER below). -->
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/SMAAShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/SMAAPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+<script>
+'use strict';
+window.addEventListener('error', function(e){
+  const el = document.getElementById('err');
+  if(el){ el.style.display = 'block'; el.textContent = 'Error: ' + (e.message || 'unknown'); }
+  const l = document.getElementById('loading'); if(l) l.style.display = 'none';
+  const s = document.getElementById('start'); if(s) s.style.display = 'flex';
+});
+/* ================================================================
+   GONE AWAY — vertical slice: the lounge
+   One room, one record player, one working valve.
+   No external assets: geometry, textures and audio are all generated.
+   Tuning lives in CFG. Everything else is grouped by section.
+   ================================================================ */
+
+const CFG = {
+  eyeHeight: 1.68, seatHeight: 1.06,
+  walkSpeed: 2.3, accel: 14, damping: 16,
+  bobAmp: 0.0, bobFreq: 1.9,        // bob off by default: it is the usual cause of sim sickness
+  lookGainMouse: 1.35, lookGainTouch: 1.0,
+  hfovWalk: 85, hfovSeat: 70,       // narrow fov worsens sim sickness; wide distorts edges
+  // Blue-hour haze rather than midnight murk, and slightly thinner so the far shore and
+  // the peak stay readable — at this hour you can see the whole bay.
+  fogColor: 0x1d4468, fogDensity: 0.0036,
+  reach: 3.6,
+  musicUrl: '',         // point at './music/track.mp3' when serving over http
+  // The Beach Noir Revue. Generated from tiki-lounge by scripts/build-library.mjs;
+  // needs http (the fetch fails silently on file:// and the generative loop covers).
+  libraryUrl: './audio/library.json'
+};
+
+const CLOUDS = [];
+const INTERACTIVE = [];
+const BLOCKERS = [];
+const SEATS = [];
+let ENV_MAP = null;   // image-based lighting, captured from the finished room at boot
+
+// ---------------------------------------------------------------- renderer
+const canvas = document.getElementById('c');
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const LOW = isTouch;
+
+const renderer = new THREE.WebGLRenderer({canvas, antialias:!LOW, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, LOW ? 1.6 : 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.14;
+renderer.shadowMap.enabled = !LOW;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(CFG.fogColor, CFG.fogDensity);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.08, 1600);
+camera.rotation.order = 'YXZ';
+
+// ---------------------------------------------------------------- post-processing
+// Bloom is what separates "a lit 3D room" from "a photographed one": the firepit,
+// the paper lanterns and the moon's path on the water all want to bleed. On top of
+// it sits one combined grade pass — anamorphic chromatic aberration, a warm/teal
+// split tone, vignette and film grain — folded into a single shader so the whole
+// film look costs one fullscreen draw instead of four.
+//
+// GRADE also performs the final linear->sRGB conversion. Passes render into linear
+// buffers (which is what bloom needs to be correct), and a plain shader pass does not
+// apply renderer.outputEncoding, so without this the image would come out dark.
+const GradeShader = {
+  uniforms: {
+    tDiffuse:    {value: null},
+    uTime:       {value: 0},
+    uGrain:      {value: 0.055},
+    uVignette:   {value: 1.0},
+    uVigDepth:   {value: 0.30},   // how dark the corners fall. The CSS overlay this
+                                  // replaced sat near 0.25, and that heavy framing is
+                                  // most of what made the room feel moody.
+    uAberration: {value: 0.0038},
+    uSat:        {value: 1.03},   // restraint: heavy saturation reads cheap
+    uContrast:   {value: 0.26},   // filmic S-curve depth
+    uWarmth:     {value: 1.0}
+  },
+  vertexShader: [
+    'varying vec2 vUv;',
+    'void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }'
+  ].join('\n'),
+  fragmentShader: [
+    'varying vec2 vUv;',
+    'uniform sampler2D tDiffuse;',
+    'uniform float uTime, uGrain, uVignette, uVigDepth, uAberration, uSat, uContrast, uWarmth;',
+    // Input is already display-referred (the buffer is tagged sRGB), so this pass must
+    // NOT gamma-encode again — and grain must be added here, in display space. Added
+    // in linear space it gets stretched by the sRGB curve near black and reads as
+    // sensor noise lifting the shadows rather than as film grain.
+    'void main(){',
+    '  vec2 d = vUv - 0.5;',
+    '  float r2 = dot(d, d);',
+    // radial chromatic aberration: nothing at centre, a hair of it at the corners
+    '  float a = uAberration * r2;',
+    '  vec3 col;',
+    '  col.r = texture2D(tDiffuse, vUv + d * a).r;',
+    '  col.g = texture2D(tDiffuse, vUv).g;',
+    '  col.b = texture2D(tDiffuse, vUv - d * a).b;',
+    // Clamp before grading. The buffer is HalfFloat and bloom pushes the firepit well
+    // above 1.0, and the S-curve below goes NEGATIVE past 1.5 — which inverted the
+    // brightest channel and turned the fire blue with a red slick on the water. The
+    // screen clips superwhites anyway, so nothing is lost by clipping here first.
+    '  col = clamp(col, 0.0, 1.0);',
+    '  float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));',
+    // split tone: push highlights to firelight amber, shadows to moonlit teal
+    '  vec3 warm = mix(vec3(1.0), vec3(1.085, 1.005, 0.90), uWarmth);',
+    '  vec3 cool = mix(vec3(1.0), vec3(0.90, 0.975, 1.10), uWarmth);',
+    '  col *= mix(cool, warm, smoothstep(0.12, 0.68, lum));',
+    '  col = mix(vec3(lum), col, uSat);',
+    // Filmic S-curve: sinks the shadows and rolls the highlights instead of clipping
+    // them. This is what stops a dark interior looking flat and grey, and it is doing
+    // more for the sense of expense here than any amount of extra saturation would.
+    '  col = mix(col, col * col * (3.0 - 2.0 * col), uContrast);',
+    // vignette, gentler than the CSS one it replaces so it reads as a lens not a mask
+    '  float vig = smoothstep(0.62, 0.02, r2 * uVignette);',
+    '  col *= mix(uVigDepth, 1.0, vig);',
+    // animated grain, scaled by luminance so it lives in the shadows like real stock
+    '  float n = fract(sin(dot(vUv * 512.0 + uTime * 60.0, vec2(12.9898, 78.233))) * 43758.5453);',
+    '  col += (n - 0.5) * uGrain * (1.15 - lum);',
+    '  gl_FragColor = vec4(max(col, vec3(0.0)), 1.0);',
+    '}'
+  ].join('\n')
+};
+
+let COMPOSER = null, BLOOM = null, GRADE = null, SMAA = null, BOKEH = null, SSAO = null;
+(function buildComposer(){
+  if(!THREE.EffectComposer || !THREE.UnrealBloomPass || !THREE.RenderPass || !THREE.ShaderPass){
+    if(window.console) console.warn('post-processing unavailable — rendering direct to canvas');
+    return;
+  }
+  try {
+    // HalfFloat keeps bloom from banding in the dark half of this very dark scene
+    const rt = new THREE.WebGLRenderTarget(1, 1, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, type: THREE.HalfFloatType
+    });
+    // The scene mixes standard materials (which write linear) with three hand-written
+    // shaders — sky, water, point sprites — which write display-referred colour and
+    // have no encoding chunk. Tagging the buffer sRGB makes three encode the standard
+    // materials on the way in, so both kinds agree and the grade pass can hand the
+    // result straight to the screen. Encoding once, at the buffer, is what keeps the
+    // lagoon from being gamma-corrected twice.
+    rt.texture.encoding = THREE.sRGBEncoding;
+    COMPOSER = new THREE.EffectComposer(renderer, rt);
+
+    // Ambient occlusion. The largest single realism gain available to this scene: with
+    // nothing darkening where surfaces meet, every object looked like it was floating
+    // above the floor rather than resting on it. Contact darkening under the sofas, in
+    // the pillar bases, in the carving and along the rafters is most of what separates a
+    // lit 3D room from a photographed one.
+    //
+    // SSAOPass renders its own beauty pass internally, so it does not strictly need a
+    // RenderPass in front of it. It gets one anyway: with SSAO as the only pass drawing
+    // the scene, switching it off left nothing rendering at all and the chain read a
+    // stale buffer and blew out to white. Keeping RenderPass costs one extra scene draw
+    // (~0.5ms of a 16.7ms budget) and makes ambient occlusion a safe quality toggle
+    // instead of a load-bearing pass.
+    COMPOSER.addPass(new THREE.RenderPass(scene, camera));
+
+    if(THREE.SSAOPass && THREE.SimplexNoise){
+      SSAO = new THREE.SSAOPass(scene, camera, 1, 1);
+      // Scene units are metres and the room is ~20 across, so the stock radius of 8 is
+      // enormous here — it occludes across the whole room instead of into the corners.
+      SSAO.kernelRadius = 0.42;
+      SSAO.minDistance  = 0.0016;
+      SSAO.maxDistance  = 0.085;
+      // Same encoding contract as the main buffer: its beauty target defaults to linear,
+      // which would hand the grade pass values two stops darker than everything else.
+      SSAO.beautyRenderTarget.texture.encoding = THREE.sRGBEncoding;
+      // OFF BY DEFAULT — measured at 24-34ms/frame against a 16.7ms budget.
+      //
+      // SSAOPass re-renders the entire scene three times (beauty, depth, normals). With
+      // 233 draw calls per scene pass that is ~930 calls a frame, so the cost is
+      // draw-call bound, not pixel bound — which is why dropping the AO to half or third
+      // resolution barely moved it (34ms -> 24ms). It looks genuinely good and it is the
+      // right effect; it is simply unaffordable until the static geometry is merged and
+      // the draw-call count comes down. Contact-shadow decals below buy most of the
+      // grounding for effectively nothing.
+      SSAO.enabled = false;
+      COMPOSER.addPass(SSAO);
+    }
+
+    // Depth of field. This is the single largest "film, not game" signal available:
+    // an image where everything is equally sharp always reads as a rendering. It is
+    // enabled only for the teaser — a shallow focus plane is beautiful to watch and
+    // horrible to walk around in, so play stays sharp. Each shot sets its own focus.
+    if(THREE.BokehPass){
+      // Aperture is the one number that decides whether this reads at all. The three.js
+      // default (~0.00035) is invisible at this scale; 0.0055 puts a real focal plane on
+      // the subject and lets the background go soft.
+      BOKEH = new THREE.BokehPass(scene, camera, {focus: 6, aperture: 0.0055, maxblur: 0.022});
+      BOKEH.enabled = false;
+      COMPOSER.addPass(BOKEH);
+    }
+
+    // Threshold is high because it is measured against sRGB-encoded values, where a
+    // linear 0.2 reads as 0.48 — at 0.62 it caught the cream cushions and half the
+    // room and hazed everything. At 0.86 it keeps to what should actually bloom: the
+    // fire, the lantern shades, the moon's path and the clouds.
+    BLOOM = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.75, 0.86);
+    COMPOSER.addPass(BLOOM);
+
+    GRADE = new THREE.ShaderPass(GradeShader);
+    COMPOSER.addPass(GRADE);
+
+    // Anti-aliasing, LAST and rendering straight to screen. `antialias: true` on the
+    // renderer does nothing once the scene is drawn into a render target, so adding
+    // post-processing silently made every edge crunchier than it had been.
+    //
+    // SMAAPass declares needsSwap = false and writes its result to the write buffer,
+    // so any pass placed after it reads the un-antialiased read buffer and throws the
+    // work away — it only functions as the final pass. Running it after the grade is
+    // also correct on its own terms: you antialias the image you actually ship.
+    if(THREE.SMAAPass){
+      SMAA = new THREE.SMAAPass(1, 1);
+      SMAA.renderToScreen = true;
+      COMPOSER.addPass(SMAA);
+    } else {
+      GRADE.renderToScreen = true;
+    }
+  } catch(e){
+    COMPOSER = null;
+    if(window.console) console.warn('post-processing failed, falling back:', e && e.message);
+  }
+})();
+
+// three's fov is vertical, so a fixed value tunnels the view in portrait and
+// over-widens it on a monitor. Derive vertical from a target horizontal fov.
+function vFov(hfovDeg){
+  const h = hfovDeg * Math.PI / 180;
+  const v = 2 * Math.atan(Math.tan(h / 2) / camera.aspect) * 180 / Math.PI;
+  return THREE.MathUtils.clamp(v, 48, 68);
+}
+
+function resize(){
+  // updateStyle must stay on. A canvas is a replaced element: with no CSS size it
+  // lays out at its intrinsic backing-store size, so on a 2x display the canvas
+  // rendered at 2560x1440 and was *displayed* at 2560x1440 anchored top-left in a
+  // 1280x720 window. Only the top-left quarter was on screen, the projection centre
+  // sat off in the corner, and the effective fov was halved and off-axis. That was
+  // the entire cause of the reported motion sickness.
+  // A zero-height window (hidden tab, some window managers, a collapsed pane) makes
+  // aspect 0/0 = NaN, which poisons the projection matrix permanently — the scene
+  // never comes back even after the window is restored. Clamp instead.
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.fov = vFov(CFG.hfovWalk);
+  camera.updateProjectionMatrix();
+  // the composer owns its own buffers and has to be told the new size too, in the
+  // renderer's device pixels rather than CSS pixels
+  if(COMPOSER){
+    // EffectComposer only adopts the renderer's pixel ratio when it creates its own
+    // render target. Because we hand it one (for HalfFloat + sRGB), it assumes a ratio
+    // of 1 — so every post-processed frame was being rendered at 1280x720 and upscaled
+    // to a 2560x1440 canvas. That half-resolution upscale was the single largest reason
+    // the image looked soft, and it also made SMAA useless because it was antialiasing
+    // an already-blurred blit. Setting it explicitly is the whole fix.
+    COMPOSER.setPixelRatio(renderer.getPixelRatio());
+    COMPOSER.setSize(w, h);
+    // setSize already forwards the effective (ratio-multiplied) size to every pass,
+    // so BLOOM and SMAA must not be resized again here with different numbers.
+  }
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------------- texture factory
+function cvs(size, fn){
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  fn(c.getContext('2d'), size);
+  return c;
+}
+function tex(size, fn, rx, ry){
+  const t = new THREE.CanvasTexture(cvs(size, fn));
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rx || 1, ry || 1);
+  t.anisotropy = maxAniso;
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+function rnd(a, b){ return a + Math.random() * (b - a); }
+
+const T = {};
+
+T.wood = tex(512, function(x, s){
+  x.fillStyle = '#33200f'; x.fillRect(0, 0, s, s);
+  const planks = 5, ph = s / planks;
+  for(let i = 0; i < planks; i++){
+    x.fillStyle = 'hsl(26 40% ' + rnd(10, 18).toFixed(1) + '%)';
+    x.fillRect(0, i * ph, s, ph - 2);
+    for(let g = 0; g < 70; g++){
+      x.strokeStyle = 'rgba(0,0,0,' + rnd(0.03, 0.10).toFixed(3) + ')';
+      x.lineWidth = rnd(0.4, 1.6);
+      const y = i * ph + Math.random() * ph;
+      x.beginPath(); x.moveTo(0, y);
+      x.bezierCurveTo(s * 0.3, y + rnd(-5, 5), s * 0.65, y + rnd(-5, 5), s, y + rnd(-3, 3));
+      x.stroke();
+    }
+    x.fillStyle = 'rgba(0,0,0,.62)'; x.fillRect(0, i * ph + ph - 3, s, 3);
+  }
+}, 5, 5);
+
+T.panel = tex(512, function(x, s){
+  x.fillStyle = '#2b1a0e'; x.fillRect(0, 0, s, s);
+  const n = 6, w = s / n;
+  for(let i = 0; i < n; i++){
+    x.fillStyle = 'hsl(24 42% ' + rnd(8, 14).toFixed(1) + '%)';
+    x.fillRect(i * w + 2, 0, w - 4, s);
+    for(let g = 0; g < 36; g++){
+      x.strokeStyle = 'rgba(0,0,0,.08)'; x.lineWidth = rnd(0.5, 1.4);
+      const px = i * w + Math.random() * w;
+      x.beginPath(); x.moveTo(px, 0); x.lineTo(px + rnd(-6, 6), s); x.stroke();
+    }
+    x.fillStyle = 'rgba(0,0,0,.78)'; x.fillRect(i * w, 0, 3, s);
+    x.fillStyle = 'rgba(255,200,140,.05)'; x.fillRect(i * w + 3, 0, 2, s);
+  }
+}, 3, 2);
+
+// Carved mahogany. The old base was light and orange enough to read as terracotta;
+// mahogany is a deep red-brown that gets its character from the carving catching
+// light, so the field goes darker and the relief highlight does the work.
+T.carve = tex(512, function(x, s){
+  x.fillStyle = '#2a1710'; x.fillRect(0, 0, s, s);
+  const n = 6, st = s / n;
+  for(let i = 0; i < n; i++){
+    for(let j = 0; j < n; j++){
+      const cx = (i + 0.5) * st, cy = (j + 0.5) * st, r = st * 0.36;
+      x.beginPath();
+      x.moveTo(cx, cy - r); x.lineTo(cx + r, cy); x.lineTo(cx, cy + r); x.lineTo(cx - r, cy);
+      x.closePath();
+      // warm relief highlight, but restrained — polished wood, not gilding
+      x.fillStyle = (i + j) % 2 ? 'rgba(214,168,116,.085)' : 'rgba(0,0,0,.50)';
+      x.fill();
+      x.strokeStyle = 'rgba(0,0,0,.6)'; x.lineWidth = 2.5; x.stroke();
+      x.beginPath(); x.arc(cx, cy, r * 0.32, 0, 7);
+      x.fillStyle = 'rgba(0,0,0,.55)'; x.fill();
+    }
+  }
+  x.strokeStyle = 'rgba(0,0,0,.65)'; x.lineWidth = 5;
+  for(let i = 0; i <= n; i++){ x.beginPath(); x.moveTo(0, i * st); x.lineTo(s, i * st); x.stroke(); }
+}, 2, 3);
+
+T.rattan = tex(256, function(x, s){
+  x.fillStyle = '#7d5a30'; x.fillRect(0, 0, s, s);
+  const n = 12, st = s / n;
+  for(let i = 0; i < n; i++){
+    for(let j = 0; j < n; j++){
+      const over = (i + j) % 2 === 0;
+      x.fillStyle = over ? '#a8814a' : '#6b4c27';
+      x.fillRect(i * st + 1, j * st + 1, st - 2, st - 2);
+      x.fillStyle = 'rgba(0,0,0,.24)';
+      if(over) x.fillRect(i * st + 1, j * st + st * 0.62, st - 2, st * 0.34);
+      else x.fillRect(i * st + st * 0.62, j * st + 1, st * 0.34, st - 2);
+    }
+  }
+}, 3, 3);
+
+// Heavy natural linen. The previous base was a saturated tan that lit up to bright
+// cream and read as new plastic — the opposite of expensive. Luxury textiles are
+// low-chroma and a step darker than you expect: the richness comes from the weave
+// catching light, not from the colour being bright.
+T.fabric = tex(256, function(x, s){
+  x.fillStyle = '#8b8578'; x.fillRect(0, 0, s, s);
+  for(let i = 0; i < 9000; i++){
+    // tight tonal flecks rather than cream sparkle — slub, not glitter
+    const v = Math.random() < 0.5 ? 168 : 108;
+    x.fillStyle = 'rgba(' + v + ',' + (v - 4) + ',' + (v - 14) + ',' + rnd(0.02, 0.06).toFixed(3) + ')';
+    x.fillRect(Math.random() * s, Math.random() * s, 2, 1);
+  }
+  // slub threads: irregular, both axes, so it reads woven instead of striped
+  for(let i = 0; i < s; i += 8){
+    x.fillStyle = 'rgba(74,70,63,' + rnd(0.05, 0.12).toFixed(3) + ')';
+    x.fillRect(0, i, s, rnd(1, 2.4));
+    x.fillStyle = 'rgba(150,145,135,' + rnd(0.02, 0.05).toFixed(3) + ')';
+    x.fillRect(i + rnd(-2, 2), 0, rnd(1, 2), s);
+  }
+}, 2, 2);
+
+T.stone = tex(512, function(x, s){
+  x.fillStyle = '#3e3a34'; x.fillRect(0, 0, s, s);
+  for(let i = 0; i < 2600; i++){
+    x.fillStyle = 'rgba(' + (150 + Math.random() * 70 | 0) + ',' + (140 + Math.random() * 60 | 0) + ',' +
+      (124 + Math.random() * 54 | 0) + ',' + rnd(0.01, 0.09).toFixed(3) + ')';
+    x.beginPath(); x.arc(Math.random() * s, Math.random() * s, rnd(1, 4), 0, 7); x.fill();
+  }
+  x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 4;
+  const n = 3, st = s / n;
+  for(let i = 0; i <= n; i++){
+    x.beginPath(); x.moveTo(0, i * st); x.lineTo(s, i * st); x.stroke();
+    x.beginPath(); x.moveTo(i * st, 0); x.lineTo(i * st, s); x.stroke();
+  }
+}, 5, 5);
+
+T.thatch = tex(512, function(x, s){
+  x.fillStyle = '#4a3a20'; x.fillRect(0, 0, s, s);
+  for(let i = 0; i < 2200; i++){
+    const y = Math.random() * s, px = Math.random() * s, len = rnd(18, 70);
+    x.strokeStyle = 'hsla(' + rnd(30, 46).toFixed(0) + ' 42% ' + rnd(9, 30).toFixed(0) + '% / ' + rnd(0.4, 1).toFixed(2) + ')';
+    x.lineWidth = rnd(1, 3);
+    x.beginPath(); x.moveTo(px, y); x.lineTo(px + len, y + rnd(-2, 2)); x.stroke();
+  }
+  for(let r = 0; r < 7; r++){ x.fillStyle = 'rgba(0,0,0,.28)'; x.fillRect(0, r * s / 7, s, 5); }
+}, 6, 3);
+
+// Flat-woven sisal. Was a high-contrast checkerboard that read as vinyl flooring; a
+// good rug is almost tonal, and you only see the weave where the light rakes across
+// it. Contrast here is deliberately a fraction of what it was.
+T.mat = tex(256, function(x, s){
+  const n = 26, st = s / n;
+  x.fillStyle = '#6b6152'; x.fillRect(0, 0, s, s);
+  for(let i = 0; i < n; i++){
+    for(let j = 0; j < n; j++){
+      // alternate warp/weft by a few percent of value, not by hue
+      const over = (i + j) % 2 === 0;
+      x.fillStyle = over ? '#726857' : '#645b4d';
+      x.fillRect(i * st, j * st, st - 0.5, st - 0.5);
+      // a single directional shadow per cell gives the weave depth cheaply
+      x.fillStyle = 'rgba(40,36,30,.16)';
+      if(over) x.fillRect(i * st, j * st + st * 0.66, st - 0.5, st * 0.34);
+      else     x.fillRect(i * st + st * 0.66, j * st, st * 0.34, st - 0.5);
+    }
+  }
+  // faint irregularity so the repeat does not read as a grid at distance
+  for(let i = 0; i < 1400; i++){
+    x.fillStyle = 'rgba(' + (110 + Math.random() * 40 | 0) + ',105,92,' + rnd(0.02, 0.06).toFixed(3) + ')';
+    x.fillRect(Math.random() * s, Math.random() * s, rnd(1, 3), 1);
+  }
+}, 4, 4);
+
+T.frond = new THREE.CanvasTexture(cvs(256, function(x, s){
+  x.clearRect(0, 0, s, s);
+  const mid = s * 0.5;
+  x.strokeStyle = '#2c6b3e'; x.lineWidth = 5;
+  x.beginPath(); x.moveTo(4, mid); x.lineTo(s - 4, mid - 14); x.stroke();
+  for(let i = 0; i < 46; i++){
+    const t = i / 46, px = 6 + t * (s - 12), py = mid - t * 14;
+    const len = Math.sin(t * Math.PI) * s * 0.30;
+    x.strokeStyle = 'hsl(' + (116 + Math.random() * 26).toFixed(0) + ' ' +
+      (28 + Math.random() * 22).toFixed(0) + '% ' + (12 + Math.random() * 14).toFixed(0) + '%)';
+    x.lineWidth = 3.4;
+    x.beginPath(); x.moveTo(px, py); x.lineTo(px + 10, py - len); x.stroke();
+    x.beginPath(); x.moveTo(px, py); x.lineTo(px + 10, py + len); x.stroke();
+  }
+}));
+T.frond.encoding = THREE.sRGBEncoding;
+
+T.spark = new THREE.CanvasTexture(cvs(128, function(x, s){
+  const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,.55)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, s, s);
+}));
+
+T.moonSprite = new THREE.CanvasTexture(cvs(512, function(x, s){
+  const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, 'rgba(255,255,252,1)');
+  g.addColorStop(0.085, 'rgba(250,252,255,.97)');
+  g.addColorStop(0.105, 'rgba(198,222,255,.30)');
+  g.addColorStop(0.34, 'rgba(150,192,255,.07)');
+  g.addColorStop(1, 'rgba(120,170,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, s, s);
+}));
+
+T.cloud = new THREE.CanvasTexture(cvs(256, function(x, s){
+  x.clearRect(0, 0, s, s);
+  for(let i = 0; i < 24; i++){
+    const cx = rnd(s * 0.2, s * 0.8), cy = rnd(s * 0.35, s * 0.65), r = rnd(s * 0.09, s * 0.22);
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(206,226,255,.30)');
+    g.addColorStop(1, 'rgba(206,226,255,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+  }
+}));
+
+// ---------------------------------------------------------------- materials
+const M = {
+  // satin-finished hardwood: low enough roughness to carry a soft reflection of the
+  // firepit and the moon path down the length of the deck, which is most of what makes
+  // a dark floor read as expensive rather than as a flat brown plane
+  floor:  new THREE.MeshStandardMaterial({map:T.wood, roughness:0.42, metalness:0.04, bumpMap:T.wood, bumpScale:0.010}),
+  panel:  new THREE.MeshStandardMaterial({map:T.panel, roughness:0.86}),
+  pillar: new THREE.MeshStandardMaterial({map:T.carve, roughness:0.78, bumpMap:T.carve, bumpScale:0.06}),
+  beam:   new THREE.MeshStandardMaterial({map:T.panel, roughness:0.9}),
+  rattan: new THREE.MeshStandardMaterial({map:T.rattan, roughness:0.92, bumpMap:T.rattan, bumpScale:0.02}),
+  // heavy linen keeps a faint sheen; fully matte fabric reads as felt
+  fabric: new THREE.MeshStandardMaterial({map:T.fabric, roughness:0.84, bumpMap:T.fabric, bumpScale:0.006}),
+  stone:  new THREE.MeshStandardMaterial({map:T.stone, roughness:0.86, bumpMap:T.stone, bumpScale:0.03}),
+  wet:    new THREE.MeshStandardMaterial({map:T.stone, color:0x8d8b84, roughness:0.26, metalness:0.05, bumpMap:T.stone, bumpScale:0.015}),
+  thatch: new THREE.MeshStandardMaterial({map:T.thatch, roughness:1, side:THREE.DoubleSide}),
+  mat:    new THREE.MeshStandardMaterial({map:T.mat, roughness:1}),
+  brass:  new THREE.MeshStandardMaterial({color:0xc09242, roughness:0.32, metalness:0.88}),
+  copper: new THREE.MeshStandardMaterial({color:0x4f7f68, roughness:0.6, metalness:0.55}),
+  bronze: new THREE.MeshStandardMaterial({color:0x6a4a26, roughness:0.4, metalness:0.72}),
+  dark:   new THREE.MeshStandardMaterial({color:0x0b0806, roughness:0.96}),
+  vinyl:  new THREE.MeshStandardMaterial({color:0x0a0a0c, roughness:0.32, metalness:0.12}),
+  frond:  new THREE.MeshStandardMaterial({map:T.frond, transparent:true, alphaTest:0.42, side:THREE.DoubleSide, roughness:1}),
+  glass:  new THREE.MeshStandardMaterial({color:0xdff2f0, roughness:0.05, transparent:true, opacity:0.3}),
+  liquid: new THREE.MeshStandardMaterial({color:0xd8763a, roughness:0.18, transparent:true, opacity:0.85}),
+  bottle: new THREE.MeshStandardMaterial({color:0x2e6b4a, roughness:0.16, transparent:true, opacity:0.7}),
+  petal:  new THREE.MeshStandardMaterial({color:0xf1e2e8, roughness:0.8}),
+  leaf:   new THREE.MeshStandardMaterial({color:0x2c6f45, roughness:0.9}),
+  emberMat: new THREE.MeshBasicMaterial({color:0xff6a1e}),
+  lampGlow: new THREE.MeshBasicMaterial({color:0xffc98a}),
+  silhouette: new THREE.MeshBasicMaterial({color:0x0b1826}),
+  stream: new THREE.MeshStandardMaterial({color:0xbfe6e2, roughness:0.1, transparent:true, opacity:0.5})
+};
+
+// ---------------------------------------------------------------- lights
+const MOON_POS = new THREE.Vector3(26, 96, -300);
+const MOON_DIR = MOON_POS.clone().normalize();
+const FIRE_POS = new THREE.Vector3(0, 0.95, -2);
+
+// Sky fill carries the blue hour indoors. At 0.40 with a near-black sky the interior
+// had almost no ambient and everything fell to silhouette; the resort should read as
+// open and occupied, not shuttered.
+scene.add(new THREE.HemisphereLight(0x5b8fc4, 0x241a10, 0.62));
+
+const moonLight = new THREE.DirectionalLight(0x9dbde8, 0.66);
+moonLight.position.copy(MOON_DIR.clone().multiplyScalar(46));
+moonLight.target.position.set(0, 0, -5);
+scene.add(moonLight, moonLight.target);
+if(!LOW){
+  moonLight.castShadow = true;
+  moonLight.shadow.mapSize.set(1024, 1024);
+  const sc = moonLight.shadow.camera;
+  sc.left = -22; sc.right = 22; sc.top = 20; sc.bottom = -20; sc.near = 1; sc.far = 100;
+  moonLight.shadow.bias = -0.0016;
+  moonLight.shadow.normalBias = 0.03;
+}
+
+const fireLight = new THREE.PointLight(0xff7a2a, 3.0, 26, 2);
+fireLight.position.copy(FIRE_POS);
+scene.add(fireLight);
+if(!LOW){
+  fireLight.castShadow = true;
+  fireLight.shadow.mapSize.set(512, 512);
+  fireLight.shadow.camera.near = 0.3;
+  fireLight.shadow.camera.far = 26;
+  fireLight.shadow.bias = -0.006;
+}
+
+// Every hanging lantern gets a real light. Previously only two of the six did, so
+// the whole west end of the lounge — including the record player, which is the
+// room's main interaction — sat in near-total darkness while a lantern visibly
+// glowed above it. Unshadowed point lights are cheap; we have the headroom.
+const LANTERN_LIGHTS = [];
+function lanternLight(x, y, z, intensity, range){
+  const l = new THREE.PointLight(0xffb066, intensity, range, 2);
+  l.position.set(x, y, z);
+  l.userData.base = intensity;
+  l.userData.phase = LANTERN_LIGHTS.length * 1.7;
+  scene.add(l);
+  LANTERN_LIGHTS.push(l);
+  return l;
+}
+const barLight = new THREE.PointLight(0xffc07a, 0.8, 9, 2);  barLight.position.set(6.3, 1.85, 7.4); scene.add(barLight);
+
+// ---------------------------------------------------------------- sky
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  // Blue hour, roughly twenty minutes after sunset. The sky was previously near-black
+  // (#040a14) which read as midnight and made the whole resort look shut. At this hour
+  // the sky is still luminous and deeply saturated, the west keeps a warm residue where
+  // the sun went down, and every practical light in the resort reads warm against it.
+  // That cool-blue-against-warm-tungsten contrast is the entire reason hotels are
+  // photographed at this hour and not at midnight.
+  uniforms: {
+    uTop:    {value: new THREE.Color(0x0a2247)},   // zenith: deep, saturated, not black
+    uHor:    {value: new THREE.Color(0x2f6d99)},   // horizon: luminous blue
+    uGlow:   {value: new THREE.Color(0xbcd8f6)},   // moon
+    uSunset: {value: new THREE.Color(0xd98a52)},   // residual warmth in the west
+    uSunDir: {value: new THREE.Vector3(-0.45, 0.0, -0.89).normalize()},
+    uMoon:   {value: MOON_DIR.clone()}
+  },
+  vertexShader: [
+    'varying vec3 vP;',
+    'void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }'
+  ].join('\n'),
+  fragmentShader: [
+    'varying vec3 vP;',
+    'uniform vec3 uTop, uHor, uGlow, uSunset, uSunDir, uMoon;',
+    'void main(){',
+    '  vec3 d = normalize(vP);',
+    '  float h = clamp(d.y * 1.15, 0.0, 1.0);',
+    // shallower curve than before, so the luminous band near the horizon stays wide
+    '  vec3 col = mix(uHor, uTop, pow(h, 0.78));',
+    // Residual sunset: hugs the horizon and fades fast with height. Anchored to one
+    // compass direction so the sky has a west, which is what stops it reading as a
+    // uniform dome.
+    '  float sd = max(dot(normalize(vec3(d.x, 0.0, d.z)), uSunDir), 0.0);',
+    '  float band = exp(-max(d.y, 0.0) * 7.0);',
+    '  col += uSunset * pow(sd, 3.2) * band * 0.42;',
+    // moon disc and its halo
+    '  float m = max(dot(d, uMoon), 0.0);',
+    '  col += uGlow * pow(m, 46.0) * 0.55;',
+    '  col += uGlow * pow(m, 4.0) * 0.10;',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '}'
+  ].join('\n')
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(760, 32, 20), skyMat));
+
+// stars
+(function(){
+  const n = 900, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), siz = new Float32Array(n), alp = new Float32Array(n);
+  for(let i = 0; i < n; i++){
+    const u = Math.random() * Math.PI * 2, v = Math.random() * 0.62 + 0.02;
+    const r = 700;
+    pos[i*3]   = Math.cos(u) * Math.cos(v) * r;
+    pos[i*3+1] = Math.sin(v) * r;
+    pos[i*3+2] = Math.sin(u) * Math.cos(v) * r;
+    const w = rnd(0.72, 1.0);
+    col[i*3] = w; col[i*3+1] = w * rnd(0.94, 1.0); col[i*3+2] = 1.0;
+    siz[i] = rnd(0.6, 2.4);
+    alp[i] = rnd(0.25, 0.95);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(siz, 1));
+  g.setAttribute('aAlpha', new THREE.BufferAttribute(alp, 1));
+  scene.add(new THREE.Points(g, makePointsMat(220)));
+})();
+
+// moon disc + halo
+(function(){
+  const d = MOON_DIR.clone().multiplyScalar(700);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(210, 210),
+    new THREE.MeshBasicMaterial({map:T.moonSprite, transparent:true, depthWrite:false, fog:false,
+      blending:THREE.AdditiveBlending}));
+  m.position.copy(d);
+  m.lookAt(0, 0, 0);
+  scene.add(m);
+})();
+
+// clouds
+for(let i = 0; i < 7; i++){
+  const c = new THREE.Mesh(new THREE.PlaneGeometry(rnd(120, 240), rnd(40, 80)),
+    new THREE.MeshBasicMaterial({map:T.cloud, transparent:true, depthWrite:false, opacity:rnd(0.35, 0.8), fog:false}));
+  c.position.set(rnd(-260, 300), rnd(48, 130), rnd(-560, -300));
+  c.lookAt(0, c.position.y, 0);
+  c.userData.drift = rnd(0.25, 0.9);
+  scene.add(c);
+  CLOUDS.push(c);
+}
+
+// ---------------------------------------------------------------- shared point-sprite material
+function makePointsMat(scale){
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    uniforms: { uMap: {value: T.spark}, uScale: {value: scale} },
+    vertexShader: [
+      'attribute float aSize;',
+      'attribute float aAlpha;',
+      'attribute vec3 aCol;',
+      'uniform float uScale;',
+      'varying vec3 vCol;',
+      'varying float vA;',
+      'void main(){',
+      '  vCol = aCol; vA = aAlpha;',
+      '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+      '  gl_PointSize = aSize * (uScale / max(-mv.z, 0.001));',
+      '  gl_Position = projectionMatrix * mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      'uniform sampler2D uMap;',
+      'varying vec3 vCol;',
+      'varying float vA;',
+      'void main(){',
+      '  vec4 t = texture2D(uMap, gl_PointCoord);',
+      '  gl_FragColor = vec4(vCol, t.a * vA);',
+      '}'
+    ].join('\n')
+  });
+}
+
+// ---------------------------------------------------------------- water
+const waterUniforms = {
+  uTime:   {value: 0},
+  uMoon:   {value: MOON_DIR.clone()},
+  // Lagoon at blue hour: the deep water holds a rich teal rather than going black, and
+  // the shallows glow turquoise the way they do in every photograph of this place. The
+  // old values (#061a26 / #14586a) were a midnight sea and made the resort look closed.
+  uDeep:   {value: new THREE.Color(0x0a3247)},
+  uShallow:{value: new THREE.Color(0x2c9cb4)},
+  uMoonCol:{value: new THREE.Color(0xbcd8ff)},
+  uFogCol: {value: new THREE.Color(CFG.fogColor)},
+  uFogD:   {value: CFG.fogDensity},
+  uFire:   {value: new THREE.Vector2(FIRE_POS.x, FIRE_POS.z)}
+};
+const waterMat = new THREE.ShaderMaterial({
+  uniforms: waterUniforms, fog: false,
+  vertexShader: [
+    'uniform float uTime;',
+    'varying vec3 vW;',
+    'varying vec3 vN;',
+    'void main(){',
+    '  vec3 pos = position;',
+    '  vec2 p = pos.xy;',
+    '  float t = uTime;',
+    '  float h = 0.0;',
+    '  vec2 dh = vec2(0.0);',
+    '  vec2 d1 = normalize(vec2(0.85, 0.52));  float k1 = 0.22, w1 = 0.75, a1 = 0.30;',
+    '  vec2 d2 = normalize(vec2(-0.35, 0.94)); float k2 = 0.47, w2 = 1.05, a2 = 0.16;',
+    '  vec2 d3 = normalize(vec2(0.62, -0.78)); float k3 = 1.15, w3 = 1.85, a3 = 0.055;',
+    '  vec2 d4 = normalize(vec2(0.15, 0.99));  float k4 = 2.60, w4 = 2.60, a4 = 0.022;',
+    '  h += a1 * sin(dot(p, d1) * k1 + w1 * t); dh += a1 * k1 * cos(dot(p, d1) * k1 + w1 * t) * d1;',
+    '  h += a2 * sin(dot(p, d2) * k2 + w2 * t); dh += a2 * k2 * cos(dot(p, d2) * k2 + w2 * t) * d2;',
+    '  h += a3 * sin(dot(p, d3) * k3 + w3 * t); dh += a3 * k3 * cos(dot(p, d3) * k3 + w3 * t) * d3;',
+    '  h += a4 * sin(dot(p, d4) * k4 + w4 * t); dh += a4 * k4 * cos(dot(p, d4) * k4 + w4 * t) * d4;',
+    '  pos.z += h;',
+    '  vec3 nLocal = normalize(vec3(-dh.x, -dh.y, 1.0));',
+    '  vN = normalize(mat3(modelMatrix) * nLocal);',
+    '  vec4 wp = modelMatrix * vec4(pos, 1.0);',
+    '  vW = wp.xyz;',
+    '  gl_Position = projectionMatrix * viewMatrix * wp;',
+    '}'
+  ].join('\n'),
+  fragmentShader: [
+    'uniform vec3 uMoon, uDeep, uShallow, uMoonCol, uFogCol;',
+    'uniform float uFogD;',
+    'uniform vec2 uFire;',
+    'varying vec3 vW;',
+    'varying vec3 vN;',
+    'void main(){',
+    '  vec3 N = normalize(vN);',
+    '  vec3 V = normalize(cameraPosition - vW);',
+    '  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);',
+    '  vec3 col = mix(uDeep, uShallow, clamp(fres * 1.5, 0.0, 1.0));',
+    '  vec3 H = normalize(uMoon + V);',
+    '  float ndh = max(dot(N, H), 0.0);',
+    '  col += uMoonCol * (pow(ndh, 260.0) * 3.4 + pow(ndh, 42.0) * 0.22);',
+    '  col += vec3(0.03, 0.06, 0.11) * fres;',
+    '  float fl = exp(-length(vW.xz - uFire) * 0.16);',
+    '  col += vec3(1.0, 0.42, 0.14) * fl * 0.16;',
+    '  float d = distance(vW, cameraPosition);',
+    '  float f = 1.0 - exp(-pow(d * uFogD, 2.0));',
+    '  gl_FragColor = vec4(mix(col, uFogCol, clamp(f, 0.0, 1.0)), 1.0);',
+    '}'
+  ].join('\n')
+});
+
+const water = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500, LOW ? 96 : 190, LOW ? 96 : 190), waterMat);
+water.rotation.x = -Math.PI / 2;
+water.position.set(0, -1.15, -330);
+scene.add(water);
+
+// ---------------------------------------------------------------- build helpers
+// Nothing in the real world has a perfectly sharp edge. Every box in this scene had a
+// true 90-degree corner, and that single fact is a large part of why it read as CG:
+// a real edge is a narrow chamfer that catches a bright line of light, and the eye uses
+// those highlights to judge that a thing is solid and manufactured.
+//
+// A one-segment RoundedBoxGeometry gives exactly that chamfer for a handful of extra
+// triangles. The radius is derived from the smallest dimension so thin panels and slats
+// get a proportionate bevel instead of a broken one, and anything too thin to bevel
+// falls back to a plain box rather than degenerating.
+function roundedBoxGeo(w, h, d){
+  if(!THREE.RoundedBoxGeometry) return new THREE.BoxGeometry(w, h, d);
+  const smallest = Math.min(Math.abs(w), Math.abs(h), Math.abs(d));
+  const r = Math.min(0.022, smallest * 0.24);
+  if(r < 0.0045) return new THREE.BoxGeometry(w, h, d);
+  try { return new THREE.RoundedBoxGeometry(w, h, d, 1, r); }
+  catch(e){ return new THREE.BoxGeometry(w, h, d); }
+}
+
+function box(w, h, d, mat, x, y, z, ry){
+  const m = new THREE.Mesh(roundedBoxGeo(w, h, d), mat);
+  m.position.set(x, y, z);
+  if(ry) m.rotation.y = ry;
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+function cyl(rt, rb, h, seg, mat, x, y, z){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+// Contact shadows. Objects that do not darken the floor beneath them read as floating,
+// and that was the strongest remaining CG tell after the bevels. Proper SSAO does this
+// correctly but costs ~30ms a frame here (see buildComposer); a soft dark decal laid flat
+// under each heavy object buys most of the same grounding for one draw call each.
+const contactTex = (function(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 2, 64, 64, 62);
+  g.addColorStop(0.00, 'rgba(0,0,0,0.62)');
+  g.addColorStop(0.45, 'rgba(0,0,0,0.34)');
+  g.addColorStop(0.78, 'rgba(0,0,0,0.10)');
+  g.addColorStop(1.00, 'rgba(0,0,0,0.00)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+})();
+const contactMat = new THREE.MeshBasicMaterial({
+  map: contactTex, transparent: true, depthWrite: false, opacity: 1.0
+});
+function contactShadow(x, z, w, d, y, opacity){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), contactMat.clone());
+  m.material.opacity = opacity === undefined ? 0.85 : opacity;
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, y === undefined ? 0.015 : y, z);
+  m.renderOrder = 1;
+  scene.add(m);
+  return m;
+}
+
+function blocker(x, z, r){ BLOCKERS.push({x: x, z: z, r: r}); }
+function interactive(obj, label, fn){
+  obj.traverse(function(o){ if(o.isMesh) o.userData.root = obj; });
+  obj.userData.act = {label: label, fn: fn};
+  INTERACTIVE.push(obj);
+}
+
+// ---------------------------------------------------------------- the pavilion
+// floor + mat + terrace
+box(19.4, 0.3, 15.4, M.floor, 0, -0.15, 0.6).castShadow = false;
+const rug = new THREE.Mesh(new THREE.PlaneGeometry(9.5, 7.4), M.mat);
+rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.006, -1.2); rug.receiveShadow = true;
+scene.add(rug);
+
+const terrace = box(23, 0.3, 7.4, M.wet, 0, -0.30, -10.6);
+terrace.castShadow = false;
+box(19.4, 0.16, 0.5, M.stone, 0, -0.07, -6.95).castShadow = false;
+
+// back wall + side walls
+box(19.4, 5.8, 0.4, M.panel, 0, 2.9, 8.4);
+box(19.4, 1.1, 0.52, M.stone, 0, 0.55, 8.34);
+box(0.4, 5.8, 7.6, M.panel, -9.5, 2.9, 4.6);
+box(0.4, 5.8, 7.6, M.panel,  9.5, 2.9, 4.6);
+box(0.5, 1.2, 7.6, M.stone, -9.44, 0.6, 4.6);
+box(0.5, 1.2, 7.6, M.stone,  9.44, 0.6, 4.6);
+
+// dark passage into the rest of the resort
+box(2.4, 3.3, 0.3, M.dark, -6.2, 1.65, 8.16);
+
+// carved pillars
+function pillar(x, z){
+  cyl(0.42, 0.46, 5.4, 12, M.pillar, x, 2.7, z);
+  cyl(0.62, 0.70, 0.35, 12, M.stone, x, 0.17, z);
+  box(1.1, 0.3, 1.1, M.beam, x, 5.5, z);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.07, 8, 16), M.bronze);
+  ring.rotation.x = Math.PI / 2; ring.position.set(x, 3.9, z);
+  ring.castShadow = true; scene.add(ring);
+  blocker(x, z, 0.62);
+}
+[[-7.7, 6.6], [7.7, 6.6], [-7.7, 1.0], [7.7, 1.0], [-7.7, -4.6], [7.7, -4.6],
+ [-4.9, -6.7], [4.9, -6.7]].forEach(function(p){ pillar(p[0], p[1]); });
+
+// beams and rafters
+[6.6, 1.0, -4.6, -6.7].forEach(function(z){ box(19.6, 0.34, 0.34, M.beam, 0, 5.55, z); });
+box(0.34, 0.34, 16, M.beam, -7.7, 5.55, 0.4);
+box(0.34, 0.34, 16, M.beam,  7.7, 5.55, 0.4);
+for(let z = -7.4; z <= 8.6; z += 1.15){
+  box(19.6, 0.14, 0.14, M.beam, 0, 5.86, z).castShadow = false;
+}
+
+// thatch roof: two slopes meeting at a ridge
+(function(){
+  const rise = 1.9, run = 10.4, len = 17.4;
+  const slope = Math.sqrt(rise * rise + run * run);
+  const ang = Math.atan2(rise, run);
+  const right = box(slope, 0.26, len, M.thatch, run / 2, 5.62 + rise / 2, 0.6);
+  right.rotation.z = -ang;
+  const left = box(slope, 0.26, len, M.thatch, -run / 2, 5.62 + rise / 2, 0.6);
+  left.rotation.z = ang;
+  box(21.4, 0.34, 0.5, M.beam, 0, 5.42, -8.1).castShadow = false;
+  box(0.5, 0.34, 17.4, M.beam, -10.3, 5.42, 0.6).castShadow = false;
+  box(0.5, 0.34, 17.4, M.beam,  10.3, 5.42, 0.6).castShadow = false;
+  // ridge
+  box(0.5, 0.5, 17.6, M.thatch, 0, 7.6, 0.6).castShadow = false;
+})();
+
+// hanging lanterns
+// A cone of light you can see hanging in the humid air under each lamp. This is the
+// cheapest thing in the scene that reads as expensive: additive, depth-write off, no
+// shadow interaction, and it gives the bloom pass something soft to catch. Brightest
+// at the apex where the lamp is, fading as it spreads toward the floor.
+const shaftMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending,
+  uniforms: {
+    uColor:    {value: new THREE.Color(0xffb877)},
+    uStrength: {value: 0.34}
+  },
+  vertexShader: [
+    'varying float vH;',
+    'varying vec3 vN;',
+    'varying vec3 vV;',
+    'void main(){',
+    '  vH = uv.y;',
+    '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+    '  vN = normalize(normalMatrix * normal);',
+    '  vV = normalize(-mv.xyz);',
+    '  gl_Position = projectionMatrix * mv;',
+    '}'
+  ].join('\n'),
+  fragmentShader: [
+    'varying float vH;',
+    'varying vec3 vN;',
+    'varying vec3 vV;',
+    'uniform vec3 uColor;',
+    'uniform float uStrength;',
+    'void main(){',
+    // vH is 1 at the cone's apex (the lamp) and 0 at the floor. The curve keeps the
+    // haze denser near the shade instead of washing the whole cone evenly.
+    '  float h = pow(clamp(vH, 0.0, 1.0), 1.55);',
+    // Soften the silhouette. A hollow double-sided cone is crossed by exactly two
+    // surfaces from any angle, so without this the alpha is flat and the cone reads as
+    // a hard triangle. Facing-ratio fades it out toward the edges, which is also
+    // roughly how far the eye actually looks through the haze.
+    '  float face = pow(abs(dot(vN, vV)), 0.75);',
+    '  float a = h * face * uStrength;',
+    '  gl_FragColor = vec4(uColor * a, a);',
+    '}'
+  ].join('\n')
+});
+const SHAFTS = [];
+
+function lantern(x, y, z, intensity, range){
+  cyl(0.02, 0.02, 5.6 - y, 6, M.dark, x, y + (5.6 - y) / 2, z).castShadow = false;
+  cyl(0.24, 0.30, 0.62, 10, M.rattan, x, y, z);
+  cyl(0.16, 0.20, 0.46, 8, M.lampGlow, x, y, z).castShadow = false;
+  // the light sits just below the shade so the glow reads as coming from inside it
+  const L = lanternLight(x, y - 0.18, z, intensity === undefined ? 0.95 : intensity, range || 11);
+  // haze cone: apex just under the shade, spreading to the floor
+  const drop = Math.max(1.2, y - 0.15);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.82, drop, 18, 1, true), shaftMat);
+  cone.position.set(x, (y - 0.2) - drop / 2, z);
+  cone.renderOrder = 3;
+  cone.userData.light = L;
+  scene.add(cone);
+  SHAFTS.push(cone);
+}
+// Art direction is "warm firelight against cool blue moonlight", immaculate but a
+// little past its prime — so these are tight pools, not room fill. Making all six
+// lanterns bright enough to read by flattened the contrast the scene is built on.
+// Lower intensity with a shorter range gives pools of light with dark between them,
+// which is what carries the firelight/moonlight balance.
+// Raised hard for blue hour. These were balanced against a near-black sky; once the sky
+// carries real light the practicals have to climb with it or the interior goes cold and
+// flat — and warm-against-cool IS the look. At this hour the inside of the pavilion
+// should read amber and occupied, brighter than the water beyond it.
+lantern(-5.6, 3.4, 1.2, 1.65, 9.5); lantern(5.6, 3.4, 1.2, 1.65, 9.5);
+lantern(-5.6, 3.6, -4.6, 1.45, 9.0); lantern(5.6, 3.6, -4.6, 1.45, 9.0);
+lantern(-2.2, 3.9, 6.8, 1.55, 9.0); lantern(2.2, 3.9, 6.8, 1.55, 9.0);
+// Garmus's turntable gets its own pool — the warmest thing at the back wall, but a
+// pool you step into rather than a lit room. Hung low and deliberately over-driven:
+// these lights decay with inverse square, so a lamp at 3.5m puts almost nothing on a
+// console at 1.1m. Low and bright reads as a task light over the deck; high and dim
+// reads as nothing at all.
+lantern(-4.4, 2.45, 7.25, 3.30, 8.0);
+
+// Grounding pools under everything heavy that meets the floor.
+contactShadow(0, -2, 4.6, 4.6, 0.018, 0.92);        // firepit
+contactShadow(-4.4, 7.6, 4.0, 2.0, 0.016, 0.78);    // record console
+contactShadow(6.3, 7.5, 6.0, 2.2, 0.016, 0.78);     // bar
+contactShadow(-2.5, 7.5, 1.4, 1.4, 0.016, 0.60);    // LP stack
+[-6.8, -2.3, 2.3, 6.8].forEach(function(px){        // pillar bases
+  [1.2, -4.6].forEach(function(pz){ contactShadow(px, pz, 2.1, 2.1, 0.014, 0.62); });
+});
+
+// ---------------------------------------------------------------- firepit
+(function(){
+  cyl(1.28, 1.42, 0.5, 14, M.stone, 0, 0.25, -2);
+  cyl(1.02, 0.86, 0.55, 14, M.bronze, 0, 0.75, -2);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.09, 8, 22), M.bronze);
+  rim.rotation.x = Math.PI / 2; rim.position.set(0, 1.02, -2);
+  rim.castShadow = true; scene.add(rim);
+  const embers = new THREE.Mesh(new THREE.CircleGeometry(0.9, 18), M.emberMat);
+  embers.rotation.x = -Math.PI / 2; embers.position.set(0, 0.86, -2);
+  scene.add(embers);
+  // a few logs
+  for(let i = 0; i < 4; i++){
+    const a = i / 4 * Math.PI * 2 + 0.4;
+    const l = cyl(0.09, 0.11, 1.1, 6, M.dark, Math.cos(a) * 0.3, 0.95, -2 + Math.sin(a) * 0.3);
+    l.rotation.z = Math.PI / 2 - 0.2; l.rotation.y = a;
+  }
+  blocker(0, -2, 1.7);
+})();
+
+// ---------------------------------------------------------------- seating
+function sofa(x, z, ry){
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  g.rotation.y = ry;
+  const add = function(w, h, d, mat, px, py, pz){
+    // bevelled like everything else — cushions and frames are the closest furniture to
+    // the camera and the hardest edges to forgive
+    const m = new THREE.Mesh(roundedBoxGeo(w, h, d), mat);
+    m.position.set(px, py, pz); m.castShadow = true; m.receiveShadow = true;
+    g.add(m); return m;
+  };
+  add(3.0, 0.34, 1.25, M.rattan, 0, 0.3, 0);
+  add(3.0, 0.22, 1.15, M.fabric, 0, 0.56, 0.02);
+  add(3.0, 0.62, 0.24, M.fabric, 0, 0.92, 0.52);
+  add(3.1, 0.14, 0.3, M.rattan, 0, 1.26, 0.55);
+  add(0.22, 0.5, 1.25, M.rattan, -1.44, 0.75, 0);
+  add(0.22, 0.5, 1.25, M.rattan, 1.44, 0.75, 0);
+  for(let i = -1; i <= 1; i++){
+    const p = add(0.62, 0.22, 0.5, M.fabric, i * 0.95, 0.82, 0.36);
+    p.rotation.x = -0.35; p.rotation.z = rnd(-0.1, 0.1);
+  }
+  for(let i = 0; i < 4; i++){
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.28, 6), M.dark);
+    leg.position.set(i < 2 ? -1.3 : 1.3, 0.14, i % 2 ? -0.45 : 0.45);
+    g.add(leg);
+  }
+  scene.add(g);
+  // grounding pool under the sofa, rotated with it
+  const cs = contactShadow(x, z, 4.2, 2.6, 0.016, 0.8);
+  cs.rotation.z = -ry;
+  blocker(x, z, 1.5);
+  const fwd = new THREE.Vector3(-Math.sin(ry), 0, -Math.cos(ry));
+  const seat = {
+    pos: new THREE.Vector3(x, 0, z).add(fwd.clone().multiplyScalar(0.12)),
+    yaw: ry, group: g
+  };
+  SEATS.push(seat);
+  interactive(g, 'Sit', function(){ sitDown(seat); });
+  return g;
+}
+sofa(-5.0, -1.2, -Math.PI / 2);
+sofa( 5.0, -1.2,  Math.PI / 2);
+sofa( 0.0,  2.4,  0);
+
+// low table + cocktail
+(function(){
+  box(2.3, 0.12, 1.2, M.floor, 0, 0.52, 0.5);
+  box(2.0, 0.42, 0.95, M.rattan, 0, 0.28, 0.5);
+  const glass = cyl(0.11, 0.075, 0.34, 12, M.glass, -0.5, 0.75, 0.5);
+  const drink = cyl(0.095, 0.065, 0.24, 12, M.liquid, -0.5, 0.70, 0.5);
+  drink.castShadow = false;
+  // orchid
+  const bowl = cyl(0.16, 0.12, 0.12, 10, M.stone, 0.55, 0.64, 0.5);
+  for(let i = 0; i < 5; i++){
+    const a = i / 5 * Math.PI * 2;
+    const petal = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), M.petal);
+    petal.position.set(0.55 + Math.cos(a) * 0.1, 0.78, 0.5 + Math.sin(a) * 0.1);
+    petal.scale.set(1, 0.4, 1.5);
+    petal.rotation.y = a;
+    scene.add(petal);
+  }
+  const stem = cyl(0.015, 0.015, 0.22, 5, M.leaf, 0.55, 0.72, 0.5);
+  stem.castShadow = false;
+  cyl(0.2, 0.2, 0.05, 12, M.bronze, 0.05, 0.6, 0.72);
+  void glass; void drink; void bowl; void stem;
+  blocker(0, 0.5, 1.2);
+})();
+
+// ---------------------------------------------------------------- record player
+let recordPlaying = false;
+const platter = new THREE.Group();
+const tonearm = new THREE.Group();
+(function(){
+  // console / sideboard
+  box(2.9, 0.9, 0.8, M.panel, -4.4, 0.55, 7.6);
+  box(3.05, 0.08, 0.9, M.floor, -4.4, 1.03, 7.6);
+  for(let i = 0; i < 4; i++){
+    cyl(0.05, 0.05, 0.14, 6, M.dark, -4.4 + (i < 2 ? -1.3 : 1.3), 0.07, 7.6 + (i % 2 ? -0.3 : 0.3));
+  }
+  // leaning LPs — a real object you can flip through, not set dressing
+  const stack = new THREE.Group();
+  stack.position.set(-2.5, 0.42, 7.5);
+  scene.add(stack);
+  for(let i = 0; i < 5; i++){
+    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.62, 0.62), M.dark);
+    lp.position.set(i * 0.05, 0, 0);
+    lp.rotation.z = 0.16;
+    lp.castShadow = true; lp.receiveShadow = true;
+    stack.add(lp);
+  }
+  // Generous invisible hit volume. The sleeves are small and low, so aiming at the
+  // real geometry meant looking down past 30 degrees before the prompt appeared.
+  // The material is invisible (so it never draws) while the mesh stays visible to
+  // the raycaster, which is what makes it a targeting proxy rather than a hole.
+  const grab = new THREE.Mesh(
+    new THREE.BoxGeometry(0.85, 1.15, 0.85),
+    new THREE.MeshBasicMaterial({visible: false})
+  );
+  grab.position.set(0.1, 0.18, 0);
+  stack.add(grab);
+  // Deliberately not "Garmus's records" — the plumber has only just landed and does
+  // not know whose shelf this is yet. That is a discovery, not a label.
+  interactive(stack, 'Flip through the records', function(){ nextRecord(); });
+
+  const rp = new THREE.Group();
+  rp.position.set(-4.4, 1.07, 7.55);
+  scene.add(rp);
+
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.16, 1.0), M.floor);
+  plinth.position.y = 0.08; plinth.castShadow = true; plinth.receiveShadow = true;
+  rp.add(plinth);
+
+  platter.position.set(-0.1, 0.17, 0);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.02, 28), M.vinyl);
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.024, 20), M.brass);
+  const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.07, 6), M.brass);
+  spindle.position.y = 0.03;
+  platter.add(disc, label, spindle);
+  rp.add(platter);
+
+  tonearm.position.set(0.44, 0.19, 0.3);
+  const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.05, 10), M.brass);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.018, 0.018), M.brass);
+  arm.position.set(-0.24, 0.03, 0);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.04), M.dark);
+  head.position.set(-0.48, 0.02, 0);
+  tonearm.add(armBase, arm, head);
+  tonearm.rotation.y = -0.55;
+  rp.add(tonearm);
+
+  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), M.brass);
+  knob.position.set(-0.5, 0.18, 0.38); rp.add(knob);
+
+  blocker(-4.4, 7.6, 1.6);
+  interactive(rp, 'Drop the needle', function(){ toggleRecord(); });
+  rp.userData.isRecord = true;
+})();
+
+// ---------------------------------------------------------------- bar
+(function(){
+  box(4.8, 1.05, 0.9, M.rattan, 6.3, 0.52, 7.5);
+  box(5.0, 0.1, 1.05, M.floor, 6.3, 1.09, 7.5);
+  box(4.8, 0.08, 0.34, M.floor, 6.3, 1.62, 8.1);
+  box(4.8, 0.08, 0.34, M.floor, 6.3, 2.12, 8.1);
+  for(let i = 0; i < 11; i++){
+    const h = rnd(0.24, 0.42);
+    const b = cyl(rnd(0.04, 0.06), rnd(0.05, 0.08), h, 8, M.bottle, 4.3 + i * 0.4, 1.66 + h / 2, 8.08);
+    b.material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(rnd(0.05, 0.35), 0.5, 0.28),
+      roughness: 0.15, transparent: true, opacity: 0.72
+    });
+  }
+  for(let i = 0; i < 6; i++){
+    const h = rnd(0.2, 0.34);
+    cyl(0.045, 0.06, h, 8, M.glass, 4.6 + i * 0.7, 2.16 + h / 2, 8.08);
+  }
+  for(let i = 0; i < 3; i++){
+    const s = cyl(0.34, 0.30, 0.1, 12, M.rattan, 5.1 + i * 1.2, 0.8, 6.5);
+    cyl(0.07, 0.07, 0.75, 8, M.dark, 5.1 + i * 1.2, 0.38, 6.5);
+    void s;
+    blocker(5.1 + i * 1.2, 6.5, 0.45);
+  }
+  blocker(6.3, 7.7, 2.4);
+})();
+
+// ---------------------------------------------------------------- locked door
+(function(){
+  const d = new THREE.Group();
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3.0, 0.12), M.panel);
+  leaf.position.set(2.4, 1.5, 8.12); leaf.castShadow = true; leaf.receiveShadow = true;
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3.25, 0.16), M.beam);
+  frame.position.set(2.4, 1.55, 8.2);
+  const handle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), M.brass);
+  handle.position.set(1.9, 1.45, 8.04);
+  d.add(frame, leaf, handle);
+  scene.add(d);
+
+  // A brass sconce beside the door. Without it this whole corner fell to near-black and
+  // the door read as a hole in the wall — bad for the one object that is openly telling
+  // you the story continues elsewhere. A wall lamp is also exactly what a torchlit
+  // resort would put next to a door it keeps locked.
+  // Same construction as the hanging lanterns, which already read well: a closed rattan
+  // shade with a closed glow cylinder just inside it. Open-ended geometry let the bulb
+  // show through as a bright quad and looked like a rendering fault.
+  const sconce = new THREE.Group();
+  sconce.position.set(3.66, 2.20, 8.03);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 6), M.brass);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.set(0, 0.13, -0.10);
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.20, 0.27, 12), M.rattan);
+  const glow  = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.155, 0.21, 10), M.lampGlow);
+  sconce.add(arm, shade, glow);
+  scene.add(sconce);
+  lanternLight(3.66, 2.02, 7.86, 0.80, 4.8);
+
+  interactive(d, 'Try the door', function(){
+    note('Locked. The manager keeps the key.');
+    Sound.doorRattle();
+  });
+})();
+
+// ---------------------------------------------------------------- valve, pipes, fountain
+let valveOpen = false;
+const valveWheel = new THREE.Group();
+const valveSpin = new THREE.Group();
+const fountainWater = new THREE.Group();
+(function(){
+  // riser and run along the terrace wall
+  cyl(0.09, 0.09, 3.4, 10, M.copper, -8.9, 1.7, -5.0);
+  const run = cyl(0.09, 0.09, 6.4, 10, M.copper, -8.9, 1.15, -7.8);
+  run.rotation.x = Math.PI / 2;
+  const run2 = cyl(0.09, 0.09, 3.6, 10, M.copper, -7.2, 1.15, -10.6);
+  run2.rotation.z = Math.PI / 2;
+  cyl(0.13, 0.13, 0.2, 10, M.copper, -8.9, 1.15, -5.0);
+
+  // gauge, turned to face anyone standing at the valve
+  const gauge = cyl(0.14, 0.14, 0.06, 14, M.brass, -8.94, 2.1, -5.0);
+  gauge.rotation.z = Math.PI / 2;
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.11, 16), M.lampGlow);
+  face.position.set(-8.86, 2.1, -5.0);
+  face.rotation.y = Math.PI / 2;
+  scene.add(face);
+
+  // the wheel itself — mounted on the riser, facing into the room
+  valveWheel.position.set(-8.78, 1.15, -5.0);
+  valveWheel.rotation.y = -Math.PI / 2;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.045, 8, 18), M.brass);
+  valveSpin.add(rim);
+  for(let i = 0; i < 3; i++){
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.04, 0.04), M.brass);
+    spoke.rotation.z = i * Math.PI / 3;
+    valveSpin.add(spoke);
+  }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 10), M.brass);
+  hub.rotation.x = Math.PI / 2;
+  valveSpin.add(hub);
+  valveWheel.add(valveSpin);
+  scene.add(valveWheel);
+  blocker(-8.9, -5.0, 0.55);
+  // Generous hit volume. The wheel is a thin torus with spokes, and playtesting found
+  // it only targeted within about a 6-degree pitch window — far too fussy for the
+  // object the whole story turns on. Invisible material, so it never draws.
+  const vgrab = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 1.0, 1.0),
+    new THREE.MeshBasicMaterial({visible: false})
+  );
+  valveWheel.add(vgrab);
+  interactive(valveWheel, 'Open the valve', function(){ toggleValve(); });
+  valveWheel.userData.isValve = true;
+
+  // stone fountain out on the terrace
+  cyl(1.35, 1.5, 0.62, 16, M.stone, -5.6, 0.16, -10.4);
+  cyl(1.18, 1.18, 0.1, 16, M.dark, -5.6, 0.42, -10.4);
+  cyl(0.22, 0.28, 1.5, 10, M.stone, -5.6, 1.1, -10.4);
+  const spout = cyl(0.07, 0.07, 0.42, 8, M.brass, -5.6, 1.72, -10.18);
+  spout.rotation.x = Math.PI / 2.4;
+  blocker(-5.6, -10.4, 1.6);
+
+  // water that appears when the valve opens
+  const poolMat = new THREE.MeshStandardMaterial({
+    color: 0x0e4a52, roughness: 0.08, metalness: 0.15
+  });
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(1.14, 28), poolMat);
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(-5.6, 0.47, -10.4);
+  const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 1.28, 8), M.stream);
+  stream.position.set(-5.6, 1.06, -10.06);
+  fountainWater.add(pool, stream);
+  fountainWater.visible = false;
+  scene.add(fountainWater);
+})();
+
+// ---------------------------------------------------------------- plants, palms, shoreline
+function palm(x, z, h){
+  cyl(0.16, 0.3, h, 7, M.dark, x, h / 2 - 0.3, z).rotation.z = rnd(-0.12, 0.12);
+  for(let i = 0; i < 7; i++){
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 0.95), M.frond);
+    f.position.set(x, h - 0.35, z);
+    f.rotation.y = i / 7 * Math.PI * 2 + rnd(-0.2, 0.2);
+    f.rotation.z = rnd(-0.55, -0.15);
+    f.translateX(1.5);
+    f.castShadow = false;
+    scene.add(f);
+  }
+}
+// A palm needs ground. Half of these stood out at z = -19 to -27, well past the terrace
+// edge at z = -14.3, with the trunk base at y = -0.3 — rooted in open water with nothing
+// beneath them. Trees hanging over the sea is most of what made the scene read as a dream
+// rather than a place.
+//
+// Each palm now gets a low sand bank and a few rocks at its foot. Small vegetated
+// outcrops are exactly what a lagoon like this has, and it grounds the trees without
+// inventing a coastline that would fight the pavilion's own footprint.
+const sandMat = new THREE.MeshStandardMaterial({
+  map: T.stone, color: 0xa89a80, roughness: 0.94, metalness: 0.0,
+  bumpMap: T.stone, bumpScale: 0.02
+});
+function palmIslet(x, z, r){
+  // Low and matte. Built from the wet-stone material at 0.30 height these read as big
+  // polished boulders rather than sand; a bank should barely break the surface.
+  const bank = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 9), sandMat);
+  bank.scale.set(1, 0.155, 1);
+  bank.position.set(x, -0.30, z);
+  bank.receiveShadow = true;
+  scene.add(bank);
+  const n = 3 + Math.floor(Math.random() * 3);
+  for(let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2, d = r * rnd(0.45, 0.95);
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.30, 0.62), 0), M.stone);
+    rock.position.set(x + Math.cos(a) * d, rnd(-0.24, 0.06), z + Math.sin(a) * d);
+    rock.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    rock.castShadow = true; rock.receiveShadow = true;
+    scene.add(rock);
+  }
+}
+
+[[-12.6, -13.5, 7.5, 2.6], [12.4, -12.8, 8.4, 2.8], [-15.5, -19, 9.2, 3.2],
+ [14.6, -20, 7.8, 3.0], [-9.6, -16.5, 6.6, 2.4], [10.2, -17.4, 7.2, 2.5],
+ [-19, -26, 8.8, 3.4], [18, -27, 9.6, 3.6],
+ // these two sit on the pavilion's own deck and need no bank
+ [-13.5, 4.0, 8.0, 0], [13.8, 3.2, 7.4, 0]
+].forEach(function(p){
+  if(p[3] > 0) palmIslet(p[0], p[1], p[3]);
+  palm(p[0], p[1], p[2]);
+});
+
+function pot(x, z){
+  cyl(0.34, 0.26, 0.5, 10, M.stone, x, 0.25, z);
+  for(let i = 0; i < 7; i++){
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.5), M.frond);
+    l.position.set(x, 0.6, z);
+    l.rotation.y = i / 7 * Math.PI * 2;
+    l.rotation.z = rnd(-0.5, -0.1);
+    l.translateX(0.65);
+    l.castShadow = false;
+    scene.add(l);
+  }
+  blocker(x, z, 0.45);
+}
+pot(-8.6, 2.6); pot(8.6, 2.6); pot(-8.6, 7.0); pot(8.9, 5.4);
+
+// rocks at the waterline
+for(let i = 0; i < 14; i++){
+  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.4, 1.1), 0), M.stone);
+  r.position.set(rnd(-16, 16), rnd(-1.4, -0.5), rnd(-15.6, -13.6));
+  r.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+  r.castShadow = true; r.receiveShadow = true;
+  scene.add(r);
+}
+
+// ---------------------------------------------------------------- the rest of the resort
+// A curving row of guest villas receding down the shoreline, each with a lit window and
+// a reflection on the water. This is the single strongest signal that the Magnanimis is
+// a living, occupied, fully-booked hotel rather than one lamp-lit room on an empty coast —
+// and at blue hour the warm windows against the blue water are the whole photograph.
+(function(){
+  // Unlit materials sit at full brightness regardless of distance, so at these values the
+  // windows blew out to white slabs and read as lightboxes rather than lit rooms. Deep
+  // amber keeps them warm once bloom and the grade have had their way with them.
+  const villaWarm = new THREE.MeshBasicMaterial({color: 0xb4732e});
+  const villaGlass = new THREE.MeshBasicMaterial({color: 0xc98139});
+  // Reflection streaks. These were flat untextured quads and read exactly like what they
+  // were — pale rectangles lying on the water, with hard edges and a visible end. A real
+  // reflection is brightest under its source, breaks up as it comes toward you, and fades
+  // to nothing; so the quad now carries a gradient that does all three and never shows a
+  // border.
+  const reflTex = (function(){
+    const c = document.createElement('canvas');
+    c.width = 32; c.height = 256;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0.00, 'rgba(255,190,120,0.95)');   // directly beneath the villa
+    g.addColorStop(0.14, 'rgba(255,175,105,0.55)');
+    g.addColorStop(0.42, 'rgba(255,165,95,0.22)');
+    g.addColorStop(1.00, 'rgba(255,160,90,0.0)');     // dissolves before it reaches you
+    x.fillStyle = g; x.fillRect(0, 0, 32, 256);
+    // chop it into broken glints rather than a continuous ribbon
+    x.globalCompositeOperation = 'destination-out';
+    for(let i = 0; i < 90; i++){
+      x.fillStyle = 'rgba(0,0,0,' + rnd(0.25, 0.8).toFixed(2) + ')';
+      x.fillRect(0, Math.random() * 256, 32, rnd(0.6, 3.2));
+    }
+    // and taper the sides so there is never a straight vertical edge
+    x.globalCompositeOperation = 'destination-in';
+    const s = x.createLinearGradient(0, 0, 32, 0);
+    s.addColorStop(0, 'rgba(0,0,0,0)'); s.addColorStop(0.5, 'rgba(0,0,0,1)');
+    s.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = s; x.fillRect(0, 0, 32, 256);
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  })();
+  const reflMat = new THREE.MeshBasicMaterial({
+    map: reflTex, color: 0xffffff, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+
+  function villa(x, z, ry, s){
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.rotation.y = ry;
+    g.scale.setScalar(s);
+
+    // stilts and deck out over the water
+    for(let i = 0; i < 4; i++){
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 2.6, 6), M.dark);
+      p.position.set(i < 2 ? -2.2 : 2.2, 0.4, i % 2 ? -1.8 : 1.8);
+      g.add(p);
+    }
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.28, 5.0), M.floor);
+    deck.position.y = 1.75; g.add(deck);
+
+    // body + a warm window wall facing the water
+    const body = new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.5, 3.8), M.panel);
+    body.position.y = 3.1; g.add(body);
+    // A lit room seen from across a bay is a narrow warm slot, not a glowing wall.
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 0.85), villaGlass);
+    win.position.set(0, 3.2, 1.93); g.add(win);
+    const spill = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.3), villaWarm);
+    spill.position.set(0, 2.0, 1.99); spill.rotation.x = -0.5; g.add(spill);
+
+    // thatched pitched roof
+    const ang = 0.42;
+    const rl = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.22, 4.6), M.thatch);
+    rl.position.set(-1.35, 4.72, 0); rl.rotation.z = ang; g.add(rl);
+    const rr = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.22, 4.6), M.thatch);
+    rr.position.set(1.35, 4.72, 0); rr.rotation.z = -ang; g.add(rr);
+    const ridgeC = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 4.7), M.thatch);
+    ridgeC.position.y = 5.35; g.add(ridgeC);
+
+    scene.add(g);
+
+    // The reflection. A stretched additive quad lying just above the water, pointing back
+    // toward the lounge — cheaper and steadier than a real reflection pass, and at this
+    // distance it is indistinguishable from one.
+    // pulled toward the viewer along the sightline so it trails off the villa, not sideways
+    const toward = new THREE.Vector2(-x, -z).normalize();
+    const refl = new THREE.Mesh(new THREE.PlaneGeometry(1.7 * s, 30 * s), reflMat);
+    refl.rotation.x = -Math.PI / 2;
+    refl.rotation.z = -Math.atan2(toward.x, toward.y);
+    refl.position.set(x + toward.x * 15 * s, 0.14, z + toward.y * 15 * s);
+    refl.renderOrder = 2;
+    scene.add(refl);
+  }
+
+  // An arc following the bay, receding to the right of the lounge's view and shrinking
+  // with distance so the shoreline reads as curving away.
+  // Along the arm of the bay, well off to one side — never in the view out to sea.
+  //
+  // The first placement swept from dead ahead to the right, which put a row of lit
+  // windows directly in the lounge's sightline and quietly destroyed the thing the whole
+  // story runs on: you look out from here and there is nobody. Privacy is the product the
+  // Magnanimis sells. The resort should only be visible when you turn your head.
+  //
+  // Concretely: at the lounge's ~90-degree view the frame spans |x| < |z|, so every villa
+  // is placed with |x| comfortably greater than |z| — around 65-75 degrees off axis. Far
+  // enough round the headland to be a neighbouring arm of the hotel, not a view.
+  // The jetty. Overwater bungalows are always strung off a single timber walkway — without
+  // it they are eleven huts standing in open sea with no way to reach them, which is what
+  // made them read as abstract shapes rather than a hotel. The boardwalk also ties them
+  // into one silhouette instead of a scatter of boxes.
+  (function boardwalk(){
+    const ax = 52, az = -16, bx = 52 + 118, bz = -16 - 58;
+    const dx = bx - ax, dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    const ang = Math.atan2(dx, dz);
+
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.26, len + 12), M.floor);
+    deck.position.set(ax + dx / 2, 1.62, az + dz / 2);
+    deck.rotation.y = ang;
+    deck.receiveShadow = true;
+    scene.add(deck);
+
+    // handrail down the seaward side
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, len + 12), M.beam);
+    rail.position.set(ax + dx / 2 + Math.cos(ang) * 1.25, 2.42, az + dz / 2 - Math.sin(ang) * 1.25);
+    rail.rotation.y = ang;
+    scene.add(rail);
+
+    // posts into the water, and rail uprights
+    const steps = Math.round(len / 3.4);
+    for(let s = 0; s <= steps; s++){
+      const f = s / steps;
+      const px = ax + dx * f, pz = az + dz * f;
+      for(let side = -1; side <= 1; side += 2){
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 3.6, 6), M.dark);
+        p.position.set(px + Math.cos(ang) * 1.1 * side, 0.15, pz - Math.sin(ang) * 1.1 * side);
+        scene.add(p);
+      }
+      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.82, 5), M.beam);
+      up.position.set(px + Math.cos(ang) * 1.25, 2.05, pz - Math.sin(ang) * 1.25);
+      scene.add(up);
+    }
+  })();
+
+  const N = 11;
+  for(let i = 0; i < N; i++){
+    const t = i / (N - 1);
+    const x = 52 + t * 118;
+    const z = -16 - t * 58;
+    // Face each villa's lit window back across the bay toward the lounge. Rotating them
+    // along the arc instead pointed every window away and left a row of black boxes.
+    villa(x, z, Math.atan2(-x, -z), 1.0 - t * 0.18);
+  }
+})();
+
+// distant island + shore lights
+(function(){
+  const peak = new THREE.Mesh(new THREE.ConeGeometry(46, 78, 5), M.silhouette);
+  peak.position.set(120, 16, -430); scene.add(peak);
+  const peak2 = new THREE.Mesh(new THREE.ConeGeometry(30, 44, 5), M.silhouette);
+  peak2.position.set(178, 6, -450); scene.add(peak2);
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(420, 14, 40), M.silhouette);
+  ridge.position.set(60, 0, -470); scene.add(ridge);
+
+  const n = 70, pos = new Float32Array(n * 3), col = new Float32Array(n * 3),
+        siz = new Float32Array(n), alp = new Float32Array(n);
+  for(let i = 0; i < n; i++){
+    pos[i*3] = rnd(-90, 220); pos[i*3+1] = rnd(6, 13); pos[i*3+2] = rnd(-480, -440);
+    col[i*3] = 1.0; col[i*3+1] = 0.72; col[i*3+2] = 0.42;
+    siz[i] = rnd(1.2, 3.0); alp[i] = rnd(0.3, 0.9);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(siz, 1));
+  g.setAttribute('aAlpha', new THREE.BufferAttribute(alp, 1));
+  scene.add(new THREE.Points(g, makePointsMat(260)));
+})();
+
+// ---------------------------------------------------------------- particle systems
+function makeSystem(count, scale){
+  const pos = new Float32Array(count * 3), col = new Float32Array(count * 3),
+        siz = new Float32Array(count), alp = new Float32Array(count);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(siz, 1));
+  g.setAttribute('aAlpha', new THREE.BufferAttribute(alp, 1));
+  const pts = new THREE.Points(g, makePointsMat(scale));
+  pts.frustumCulled = false;
+  scene.add(pts);
+  return {geo: g, pts: pts, pos: pos, col: col, siz: siz, alp: alp, n: count, data: []};
+}
+
+const fire = makeSystem(LOW ? 90 : 150, 240);
+for(let i = 0; i < fire.n; i++) fire.data.push({life: Math.random() * 1.2, max: 1.2});
+function resetFire(i){
+  const d = fire.data[i];
+  d.max = rnd(0.7, 1.7); d.life = 0;
+  d.x = FIRE_POS.x + rnd(-0.42, 0.42);
+  d.y = 0.88 + rnd(0, 0.1);
+  d.z = FIRE_POS.z + rnd(-0.42, 0.42);
+  d.vx = rnd(-0.16, 0.16); d.vy = rnd(0.9, 2.0); d.vz = rnd(-0.16, 0.16);
+  d.size = rnd(0.5, 1.5);
+}
+for(let i = 0; i < fire.n; i++){ resetFire(i); fire.data[i].life = Math.random() * fire.data[i].max; }
+
+const motes = makeSystem(LOW ? 70 : 110, 180);
+for(let i = 0; i < motes.n; i++){
+  motes.data.push({
+    x: rnd(-9, 9), y: rnd(0.4, 4.6), z: rnd(-12, 8),
+    vx: rnd(-0.1, 0.1), vy: rnd(0.02, 0.13), vz: rnd(-0.1, 0.1),
+    ph: Math.random() * 7, size: rnd(0.25, 0.8), warm: Math.random() < 0.6
+  });
+}
+
+const spray = makeSystem(70, 200);
+for(let i = 0; i < spray.n; i++) spray.data.push({life: Math.random(), max: 1});
+function resetSpray(i){
+  const d = spray.data[i];
+  d.max = rnd(0.35, 0.8); d.life = 0;
+  d.x = -5.6 + rnd(-0.12, 0.12);
+  d.y = 0.5;
+  d.z = -10.06 + rnd(-0.12, 0.12);
+  d.vx = rnd(-0.5, 0.5); d.vy = rnd(0.5, 1.5); d.vz = rnd(-0.5, 0.5);
+  d.size = rnd(0.2, 0.55);
+}
+for(let i = 0; i < spray.n; i++) resetSpray(i);
+
+// ---------------------------------------------------------------- audio
+const Sound = (function(){
+  let AC = null, master = null, ambBus = null, fireBus = null, musicBus = null,
+      musicFilter = null, waterBus = null, waterGain = null, fireGain = null,
+      surfGain = null, delayWet = null;
+  let noiseBuf = null, userBuffer = null, musicSource = null;
+  let started = false, genOn = false, crackleOn = false;
+  let nextBeat = 0, beat = 0, schedTimer = null;
+
+  // ---- the record: a streamed <audio> element routed into the music bus ----
+  // The album is 4 hours long, so decoding whole tracks into AudioBuffers is out
+  // (one 4-minute track is ~85 MB of float PCM). A MediaElementAudioSourceNode
+  // streams instead, starts instantly, and still passes through musicFilter so
+  // the distance/occlusion mix applies exactly as it did to the generative loop.
+  let trackEl = null, trackNode = null;
+  let library = null, trackIndex = -1, surfaceOn = false;
+
+  function noise(){
+    const src = AC.createBufferSource();
+    src.buffer = noiseBuf; src.loop = true;
+    return src;
+  }
+  function makeNoiseBuffer(){
+    const len = AC.sampleRate * 3;
+    const b = AC.createBuffer(1, len, AC.sampleRate);
+    const d = b.getChannelData(0);
+    let last = 0;
+    for(let i = 0; i < len; i++){
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      d[i] = last * 3.2;
+    }
+    return b;
+  }
+  function lfo(rate, depth, target, base){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.value = rate; g.gain.value = depth;
+    o.connect(g).connect(target);
+    target.value = base;
+    o.start();
+    return o;
+  }
+
+  function init(){
+    if(AC) return;
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = makeNoiseBuffer();
+
+    master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
+    ambBus = AC.createGain(); ambBus.gain.value = 1.0; ambBus.connect(master);
+    fireBus = AC.createGain(); fireBus.gain.value = 1.0; fireBus.connect(master);
+    waterBus = AC.createGain(); waterBus.gain.value = 0.0; waterBus.connect(master);
+
+    musicFilter = AC.createBiquadFilter();
+    musicFilter.type = 'lowpass'; musicFilter.frequency.value = 3000;
+    musicBus = AC.createGain(); musicBus.gain.value = 0.0;
+    musicBus.connect(musicFilter).connect(master);
+
+    const delay = AC.createDelay(1.0); delay.delayTime.value = 0.34;
+    const fb = AC.createGain(); fb.gain.value = 0.3;
+    delayWet = AC.createGain(); delayWet.gain.value = 0.22;
+    delay.connect(fb).connect(delay);
+    delay.connect(delayWet).connect(musicFilter);
+
+    // surf
+    const s = noise();
+    const sf = AC.createBiquadFilter(); sf.type = 'lowpass'; sf.frequency.value = 520;
+    surfGain = AC.createGain(); surfGain.gain.value = 0.16;
+    s.connect(sf).connect(surfGain).connect(ambBus);
+    s.start();
+    const swell = AC.createGain(); swell.gain.value = 1;
+    lfo(0.07, 220, sf.frequency, 520);
+    void swell;
+
+    const s2 = noise();
+    const sf2 = AC.createBiquadFilter(); sf2.type = 'bandpass';
+    sf2.frequency.value = 2400; sf2.Q.value = 0.7;
+    const g2 = AC.createGain(); g2.gain.value = 0.012;
+    s2.connect(sf2).connect(g2).connect(ambBus);
+    s2.start();
+    lfo(0.11, 0.010, g2.gain, 0.014);
+
+    // wind through the thatch
+    const w = noise();
+    const wf = AC.createBiquadFilter(); wf.type = 'bandpass';
+    wf.frequency.value = 620; wf.Q.value = 0.5;
+    const wg = AC.createGain(); wg.gain.value = 0.03;
+    w.connect(wf).connect(wg).connect(ambBus);
+    w.start();
+    lfo(0.045, 0.022, wg.gain, 0.032);
+
+    // night air — filtered noise only. Tonal oscillators read as electronic whine.
+    const ni = noise();
+    const nif = AC.createBiquadFilter();
+    nif.type = 'bandpass'; nif.frequency.value = 3400; nif.Q.value = 1.2;
+    const nig = AC.createGain(); nig.gain.value = 0.006;
+    ni.connect(nif).connect(nig).connect(ambBus);
+    ni.start();
+    lfo(0.09, 0.004, nig.gain, 0.007);
+
+    // fire bed
+    const f = noise();
+    const ff = AC.createBiquadFilter(); ff.type = 'lowpass'; ff.frequency.value = 340;
+    fireGain = AC.createGain(); fireGain.gain.value = 0.09;
+    f.connect(ff).connect(fireGain).connect(fireBus);
+    f.start();
+
+    // fountain bed (gain rides on valve state + distance)
+    const wt = noise();
+    const wtf = AC.createBiquadFilter(); wtf.type = 'bandpass';
+    wtf.frequency.value = 1900; wtf.Q.value = 0.6;
+    waterGain = AC.createGain(); waterGain.gain.value = 0.10;
+    wt.connect(wtf).connect(waterGain).connect(waterBus);
+    wt.start();
+
+    crackleOn = true;
+    crackle();
+    started = true;
+    master.gain.linearRampToValueAtTime(0.9, AC.currentTime + 2.5);
+    window.__musicDelay = delay;
+  }
+
+  function burstNoise(dest, when, dur, freq, q, vol, type){
+    const src = noise();
+    const f = AC.createBiquadFilter();
+    f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    src.connect(f).connect(g).connect(dest);
+    src.start(when); src.stop(when + dur + 0.02);
+  }
+
+  function crackle(){
+    if(!crackleOn || !AC) return;
+    const t = AC.currentTime + 0.01;
+    burstNoise(fireBus, t, rnd(0.03, 0.13), rnd(700, 2600), rnd(2, 8), rnd(0.02, 0.09));
+    setTimeout(crackle, rnd(90, 460));
+  }
+
+  function ping(f0, f1, dur, type, vol, dest){
+    if(!AC) return;
+    const t = AC.currentTime;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(dest || master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  // ---- generative exotica, used until a track is loaded ----
+  const SCALE = [220.0, 261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3];
+  const BASS  = [110.0, 87.31, 73.42, 82.41];
+  function vibe(freq, when, vol){
+    const car = AC.createOscillator(), mod = AC.createOscillator(),
+          mg = AC.createGain(), g = AC.createGain();
+    car.type = 'sine'; mod.type = 'sine';
+    car.frequency.value = freq;
+    mod.frequency.value = freq * 3.01;
+    mg.gain.value = freq * 1.1;
+    mod.connect(mg).connect(car.frequency);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.linearRampToValueAtTime(vol, when + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 1.9);
+    car.connect(g);
+    g.connect(musicBus);
+    if(window.__musicDelay) g.connect(window.__musicDelay);
+    car.start(when); mod.start(when);
+    car.stop(when + 2.0); mod.stop(when + 2.0);
+  }
+  function bass(freq, when){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.linearRampToValueAtTime(0.11, when + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 1.1);
+    o.connect(g).connect(musicBus);
+    o.start(when); o.stop(when + 1.2);
+  }
+  function shaker(when, vol){
+    burstNoise(musicBus, when, 0.05, 7200, 0.8, vol, 'highpass');
+  }
+  function bird(when){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(2100, when);
+    o.frequency.exponentialRampToValueAtTime(3500, when + 0.07);
+    g.gain.setValueAtTime(0.05, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.09);
+    o.connect(g).connect(musicBus);
+    o.start(when); o.stop(when + 0.1);
+  }
+  function vinylPop(when){
+    burstNoise(musicBus, when, 0.012, rnd(1200, 5000), 4, rnd(0.01, 0.05));
+  }
+  function scheduler(){
+    if(!genOn || !AC) return;
+    const spb = 60 / 96;
+    while(nextBeat < AC.currentTime + 0.3){
+      const t = Math.max(nextBeat, AC.currentTime + 0.02);
+      const bar = Math.floor(beat / 4) % 4;
+      if(beat % 2 === 0) shaker(t, 0.018);
+      if(beat % 4 === 0) bass(BASS[bar], t);
+      if(Math.random() < 0.5) vibe(SCALE[Math.floor(Math.random() * SCALE.length)], t, 0.055);
+      if(Math.random() < 0.12) vibe(SCALE[Math.floor(Math.random() * SCALE.length)], t + spb * 0.5, 0.035);
+      for(let k = 0; k < 3; k++) if(Math.random() < 0.5) vinylPop(t + Math.random() * spb);
+      nextBeat += spb;
+      beat++;
+    }
+    schedTimer = setTimeout(scheduler, 60);
+  }
+
+  // Vinyl surface noise, scheduled only while a record is actually turning. This
+  // is what makes a clean digital master read as a record playing in a room —
+  // more than wow or flutter does, and without touching playbackRate.
+  function surface(){
+    if(!surfaceOn || !AC) return;
+    const t = AC.currentTime + 0.01;
+    for(let k = 0; k < 2; k++) vinylPop(t + Math.random() * 0.4);
+    if(Math.random() < 0.12) burstNoise(musicBus, t, rnd(0.02, 0.06), rnd(600, 1800), 3, rnd(0.01, 0.03));
+    setTimeout(surface, rnd(120, 420));
+  }
+
+  function ensureTrackNode(){
+    if(trackNode) return;
+    trackEl = new Audio();
+    trackEl.preload = 'auto';
+    trackEl.crossOrigin = 'anonymous';
+    trackNode = AC.createMediaElementSource(trackEl);
+    trackNode.connect(musicBus);
+    // advance the stack on its own, so the room keeps playing unattended
+    trackEl.addEventListener('ended', function(){
+      if(library) api.playTrack(trackIndex + 1);
+    });
+  }
+
+  const api = {
+    init: init,
+    ready: function(){ return started; },
+    resume: function(){ if(AC && AC.state === 'suspended') AC.resume(); },
+
+    // ---- record library ----
+    loadLibrary: function(url, cb){
+      fetch(url)
+        .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(lib){
+          if(!lib || !lib.tracks || !lib.tracks.length) throw new Error('empty library');
+          library = lib;
+          if(cb) cb(true, lib);
+        })
+        .catch(function(err){ if(cb) cb(false, null, err); });
+    },
+    hasLibrary: function(){ return !!(library && library.tracks.length); },
+    libraryInfo: function(){ return library; },
+    currentTrack: function(){
+      if(!library || trackIndex < 0) return null;
+      return library.tracks[((trackIndex % library.tracks.length) + library.tracks.length) % library.tracks.length];
+    },
+    // Plays library track i (wrapping). Returns the track, or null if no library.
+    playTrack: function(i){
+      if(!library || !library.tracks.length) return null;
+      init();
+      ensureTrackNode();
+      const n = library.tracks.length;
+      trackIndex = ((i % n) + n) % n;
+      const t = library.tracks[trackIndex];
+      genOn = false;
+      if(schedTimer){ clearTimeout(schedTimer); schedTimer = null; }
+      trackEl.src = t.src;
+      const p = trackEl.play();
+      if(p && p.catch) p.catch(function(){ /* autoplay gate — retried on next interact */ });
+      musicBus.gain.cancelScheduledValues(AC.currentTime);
+      if(!surfaceOn){ surfaceOn = true; surface(); }
+      return t;
+    },
+    pauseTrack: function(){
+      surfaceOn = false;
+      if(trackEl && !trackEl.paused) trackEl.pause();
+    },
+    resumeTrack: function(){
+      if(!trackEl || !trackEl.src) return false;
+      const p = trackEl.play();
+      if(p && p.catch) p.catch(function(){});
+      if(!surfaceOn){ surfaceOn = true; surface(); }
+      return true;
+    },
+    trackPlaying: function(){ return !!(trackEl && trackEl.src && !trackEl.paused); },
+    // playback position and audio-graph health, for tuning and a now-playing readout
+    position: function(){
+      if(!trackEl) return null;
+      return {
+        time: trackEl.currentTime, duration: trackEl.duration || 0,
+        paused: trackEl.paused, ready: trackEl.readyState,
+        ctx: AC ? AC.state : 'none',
+        busGain: musicBus ? musicBus.gain.value : null,
+        cutoffHz: musicFilter ? Math.round(musicFilter.frequency.value) : null
+      };
+    },
+    loadFile: function(file, cb){
+      init();
+      const fr = new FileReader();
+      fr.onload = function(){
+        AC.decodeAudioData(fr.result, function(buf){
+          userBuffer = buf;
+          if(cb) cb(true);
+        }, function(){ if(cb) cb(false); });
+      };
+      fr.readAsArrayBuffer(file);
+    },
+    loadUrl: function(url, cb){
+      init();
+      fetch(url).then(function(r){ return r.arrayBuffer(); })
+        .then(function(b){ return AC.decodeAudioData(b); })
+        .then(function(buf){ userBuffer = buf; if(cb) cb(true); })
+        .catch(function(){ if(cb) cb(false); });
+    },
+    hasTrack: function(){ return !!userBuffer; },
+    startMusic: function(){
+      if(!AC) return;
+      musicBus.gain.cancelScheduledValues(AC.currentTime);
+      musicBus.gain.setTargetAtTime(0.85, AC.currentTime, 0.8);
+      // priority: whatever record is already on the platter, then the album, then a
+      // dropped file, then the generative loop as the last resort.
+      if(trackEl && trackEl.src){ api.resumeTrack(); return; }
+      if(library && library.tracks.length){ api.playTrack(trackIndex < 0 ? 0 : trackIndex); return; }
+      if(userBuffer){
+        musicSource = AC.createBufferSource();
+        musicSource.buffer = userBuffer;
+        musicSource.loop = true;
+        // a touch of wow, so it sits in the room rather than on top of it
+        const w = AC.createOscillator(), wg = AC.createGain();
+        w.frequency.value = 0.35; wg.gain.value = 0.0016;
+        w.connect(wg).connect(musicSource.playbackRate);
+        w.start();
+        musicSource.connect(musicBus);
+        musicSource.start();
+      } else {
+        genOn = true;
+        nextBeat = AC.currentTime + 0.25;
+        beat = 0;
+        scheduler();
+      }
+    },
+    stopMusic: function(){
+      if(!AC) return;
+      musicBus.gain.setTargetAtTime(0.0001, AC.currentTime, 0.35);
+      api.pauseTrack();
+      genOn = false;
+      if(schedTimer){ clearTimeout(schedTimer); schedTimer = null; }
+      if(musicSource){
+        const src = musicSource; musicSource = null;
+        setTimeout(function(){ try{ src.stop(); }catch(e){} }, 900);
+      }
+    },
+    needle: function(down){
+      if(!AC) return;
+      burstNoise(master, AC.currentTime, down ? 0.09 : 0.05, 2600, 3, down ? 0.09 : 0.05);
+      ping(down ? 180 : 260, down ? 90 : 150, 0.12, 'sine', 0.03);
+    },
+    valve: function(open){
+      if(!AC) return;
+      const t = AC.currentTime;
+      for(let i = 0; i < 7; i++){
+        burstNoise(master, t + i * 0.075, 0.07, 900 + i * 90, 6, 0.05, 'bandpass');
+      }
+      ping(open ? 90 : 150, open ? 150 : 80, 0.5, 'triangle', 0.05);
+      if(open) burstNoise(master, t + 0.55, 1.4, 700, 0.7, 0.10);
+    },
+    doorRattle: function(){
+      if(!AC) return;
+      const t = AC.currentTime;
+      burstNoise(master, t, 0.07, 320, 5, 0.09, 'bandpass');
+      burstNoise(master, t + 0.11, 0.06, 260, 5, 0.07, 'bandpass');
+    },
+    step: function(){
+      if(!AC) return;
+      const t = AC.currentTime;
+      burstNoise(master, t, 0.09, rnd(150, 260), 1.6, 0.045, 'lowpass');
+      ping(rnd(110, 150), 60, 0.07, 'sine', 0.012);
+    },
+    sit: function(){
+      if(!AC) return;
+      burstNoise(master, AC.currentTime, 0.34, 420, 0.8, 0.05, 'lowpass');
+    },
+    update: function(camPos, seated, valveIsOpen){
+      if(!AC || !started) return;
+      const t = AC.currentTime;
+      const dFire = camPos.distanceTo(FIRE_POS);
+      fireBus.gain.setTargetAtTime(Math.min(1, 2.2 / (1 + dFire * 0.55)), t, 0.2);
+      const dRec = camPos.distanceTo(new THREE.Vector3(-4.4, 1.1, 7.55));
+      musicFilter.frequency.setTargetAtTime(
+        THREE.MathUtils.clamp(11000 / (1 + dRec * 0.55), 700, 12000), t, 0.3);
+      const sounding = genOn || musicSource || (trackEl && trackEl.src && !trackEl.paused);
+      musicBus.gain.setTargetAtTime(
+        sounding ? Math.min(0.95, 3.4 / (1 + dRec * 0.5)) : 0.0001, t, 0.3);
+      const dWater = camPos.distanceTo(new THREE.Vector3(-5.6, 0.6, -10.4));
+      waterBus.gain.setTargetAtTime(
+        valveIsOpen ? Math.min(1, 2.4 / (1 + dWater * 0.7)) : 0.0001, t, 0.4);
+      // the sea is louder out on the terrace
+      const openness = THREE.MathUtils.clamp((2 - camPos.z) / 12, 0.35, 1.6);
+      surfGain.gain.setTargetAtTime(0.14 * openness * (seated ? 1.15 : 1), t, 0.5);
+    }
+  };
+  return api;
+})();
+
+// ---------------------------------------------------------------- interaction state
+function toggleRecord(){
+  recordPlaying = !recordPlaying;
+  Sound.needle(recordPlaying);
+  if(recordPlaying){
+    Sound.startMusic();
+    announceRecord();
+  } else {
+    Sound.stopMusic();
+    note('');
+  }
+}
+
+// ---------------------------------------------------------------- the collection
+// Garmus's records, still shelved in his lounge. Per the pitch this is both the
+// collectible loop and the emotional core: the sides you have played are the ones
+// you have heard the way he heard them, so which ones you've found is worth keeping
+// across sessions. This is also the build's first piece of save state.
+const Collection = (function(){
+  const KEY = 'goneaway.collection.v1';
+  let heard = new Set();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if(raw) heard = new Set(JSON.parse(raw));
+  } catch(e){ /* private mode, or a corrupt entry: start fresh rather than fail */ }
+  function persist(){
+    try { localStorage.setItem(KEY, JSON.stringify(Array.from(heard))); }
+    catch(e){ /* nothing to do — the collection just won't survive the session */ }
+  }
+  return {
+    // returns true the first time a given side is played
+    mark: function(id){
+      if(!id || heard.has(id)) return false;
+      heard.add(id); persist(); return true;
+    },
+    has: function(id){ return heard.has(id); },
+    count: function(){ return heard.size; }
+  };
+})();
+
+// Reading the label. Lagoon Lounge deliberately never prints its track titles, but
+// here the sleeve is a physical object in your hands, so you read it — quietly, and
+// only for a moment.
+function announceRecord(){
+  const t = Sound.currentTrack();
+  if(!t) return;
+  const total = Sound.libraryInfo() ? Sound.libraryInfo().count : 0;
+  const fresh = Collection.mark(t.id);
+  let line = '“' + t.title + '”  ·  ' + t.artist;
+  line += '\nside ' + t.n + ' of ' + total;
+  if(fresh) line += '  ·  never played';
+  line += '   —   ' + Collection.count() + ' of ' + total + ' heard';
+  note(line);
+}
+
+// Flipping through the shelf: take the next side off the pile.
+function nextRecord(){
+  if(!Sound.hasLibrary()){ note('Empty sleeves. The records are somewhere else.'); return; }
+  const cur = Sound.currentTrack();
+  Sound.playTrack(cur ? cur.n : 0);   // n is 1-based, so this lands on the next side
+  recordPlaying = true;
+  Sound.needle(true);
+  announceRecord();
+}
+function toggleValve(){
+  valveOpen = !valveOpen;
+  Sound.valve(valveOpen);
+  fountainWater.visible = valveOpen;
+  note(valveOpen ? 'Line three is live.' : 'Line three is shut.');
+}
+
+let seated = null, seatTimer = 0;
+function sitDown(seat){
+  seated = seat;
+  seatTimer = 0;
+  Sound.sit();
+}
+function standUp(){
+  if(!seated) return;
+  const fwd = new THREE.Vector3(-Math.sin(seated.yaw), 0, -Math.cos(seated.yaw));
+  player.pos.copy(seated.pos).add(fwd.multiplyScalar(1.5));
+  seated = null;
+  seatTimer = 0;
+}
+
+let noteTimer = null;
+function note(text){
+  const el = document.getElementById('note');
+  if(!text){ el.style.opacity = 0; return; }
+  el.textContent = text;
+  el.style.opacity = 1;
+  if(noteTimer) clearTimeout(noteTimer);
+  noteTimer = setTimeout(function(){ el.style.opacity = 0; }, 4200);
+}
+
+// ---------------------------------------------------------------- player + input
+const player = {
+  pos: new THREE.Vector3(2.6, 0, 6.4),
+  vel: new THREE.Vector3(),
+  yaw: 0.30, pitch: -0.05, bob: 0, stepAcc: 0
+};
+const keys = {};
+let state = 'menu';
+
+addEventListener('keydown', function(e){
+  keys[e.code] = true;
+  if(e.code === 'KeyE'){ interact(); }
+  if(e.code === 'Escape' && seated) standUp();
+});
+addEventListener('keyup', function(e){ keys[e.code] = false; });
+
+// One pixel of drag should turn the view by the angle that pixel actually
+// covers. Using a flat per-pixel constant makes the two axes disagree whenever
+// the frustum is not square, which reads as the view skewing rather than turning.
+function angPerPixel(){
+  const vf = camera.fov * Math.PI / 180;
+  const hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  return {x: hf / innerWidth, y: vf / innerHeight};
+}
+
+addEventListener('mousemove', function(e){
+  if(state !== 'play' || !document.pointerLockElement) return;
+  const a = angPerPixel();
+  player.yaw -= e.movementX * a.x * CFG.lookGainMouse;
+  player.pitch -= e.movementY * a.y * CFG.lookGainMouse;
+  player.pitch = THREE.MathUtils.clamp(player.pitch, -1.0, 0.95);
+});
+
+// touch: left half walks, right half looks
+let tLook = null, tMove = null;
+addEventListener('touchstart', function(e){
+  if(state !== 'play') return;
+  for(let i = 0; i < e.changedTouches.length; i++){
+    const t = e.changedTouches[i];
+    if(t.clientX < innerWidth * 0.45 && !tMove) tMove = {id: t.identifier, x: t.clientX, y: t.clientY, dx: 0, dy: 0};
+    else if(!tLook) tLook = {id: t.identifier, x: t.clientX, y: t.clientY};
+  }
+}, {passive: true});
+addEventListener('touchmove', function(e){
+  for(let i = 0; i < e.changedTouches.length; i++){
+    const t = e.changedTouches[i];
+    if(tMove && t.identifier === tMove.id){
+      tMove.dx = THREE.MathUtils.clamp((t.clientX - tMove.x) / 60, -1, 1);
+      tMove.dy = THREE.MathUtils.clamp((t.clientY - tMove.y) / 60, -1, 1);
+    } else if(tLook && t.identifier === tLook.id){
+      const a = angPerPixel();
+      player.yaw -= (t.clientX - tLook.x) * a.x * CFG.lookGainTouch;
+      player.pitch -= (t.clientY - tLook.y) * a.y * CFG.lookGainTouch;
+      player.pitch = THREE.MathUtils.clamp(player.pitch, -1.0, 0.95);
+      tLook.x = t.clientX; tLook.y = t.clientY;
+    }
+  }
+}, {passive: true});
+addEventListener('touchend', function(e){
+  for(let i = 0; i < e.changedTouches.length; i++){
+    const t = e.changedTouches[i];
+    if(tMove && t.identifier === tMove.id) tMove = null;
+    if(tLook && t.identifier === tLook.id) tLook = null;
+  }
+}, {passive: true});
+
+// ---------------------------------------------------------------- targeting
+const ray = new THREE.Raycaster();
+ray.far = CFG.reach;
+const centre = new THREE.Vector2(0, 0);
+let target = null;
+
+function updateTarget(){
+  const el = document.getElementById('prompt');
+  const ret = document.getElementById('reticle');
+  if(seated){
+    target = null;
+    el.innerHTML = '<b>E</b> &nbsp;Stand';
+    el.style.opacity = 1;
+    ret.classList.remove('hot');
+    return;
+  }
+  ray.setFromCamera(centre, camera);
+  const hits = ray.intersectObjects(INTERACTIVE, true);
+  const root = hits.length ? hits[0].object.userData.root : null;
+  target = root || null;
+  if(target && target.userData.act){
+    let label = target.userData.act.label;
+    if(target.userData.isRecord) label = recordPlaying ? 'Lift the needle' : 'Drop the needle';
+    if(target.userData.isValve) label = valveOpen ? 'Close the valve' : 'Open the valve';
+    el.innerHTML = '<b>E</b> &nbsp;' + label;
+    el.style.opacity = 1;
+    ret.classList.add('hot');
+  } else {
+    el.style.opacity = 0;
+    ret.classList.remove('hot');
+  }
+}
+function interact(){
+  if(state !== 'play') return;
+  if(seated){ standUp(); return; }
+  if(target && target.userData.act) target.userData.act.fn();
+}
+addEventListener('click', function(){
+  if(state === 'play' && isTouch) interact();
+});
+
+// ---------------------------------------------------------------- movement
+function collide(p){
+  // outer bounds: pavilion is narrower than the terrace
+  const zMin = -13.4, zMax = 7.6;
+  p.z = THREE.MathUtils.clamp(p.z, zMin, zMax);
+  const xLim = p.z > -6.6 ? 8.9 : 10.6;
+  p.x = THREE.MathUtils.clamp(p.x, -xLim, xLim);
+  for(let i = 0; i < BLOCKERS.length; i++){
+    const b = BLOCKERS[i];
+    const dx = p.x - b.x, dz = p.z - b.z;
+    const d = Math.hypot(dx, dz);
+    const r = b.r + 0.34;
+    if(d < r && d > 0.0001){
+      p.x = b.x + dx / d * r;
+      p.z = b.z + dz / d * r;
+    }
+  }
+}
+
+function updatePlayer(dt){
+  if(seated){
+    seatTimer += dt;
+    player.pos.lerp(seated.pos, 1 - Math.pow(0.002, dt));
+    if(seatTimer < 1.1){
+      let d = seated.yaw - player.yaw;
+      while(d > Math.PI) d -= Math.PI * 2;
+      while(d < -Math.PI) d += Math.PI * 2;
+      player.yaw += d * (1 - Math.pow(0.02, dt));
+      player.pitch += (-0.06 - player.pitch) * (1 - Math.pow(0.05, dt));
+    }
+    player.vel.set(0, 0, 0);
+    return;
+  }
+  let fx = 0, fz = 0;
+  if(keys.KeyW || keys.ArrowUp) fz -= 1;
+  if(keys.KeyS || keys.ArrowDown) fz += 1;
+  if(keys.KeyA || keys.ArrowLeft) fx -= 1;
+  if(keys.KeyD || keys.ArrowRight) fx += 1;
+  if(tMove){ fx += tMove.dx; fz += tMove.dy; }
+  const len = Math.hypot(fx, fz);
+  if(len > 1){ fx /= len; fz /= len; }
+  // forward = (-sin yaw, 0, -cos yaw); right = (cos yaw, 0, -sin yaw)
+  const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+  const wx = fx * cos + fz * sin;
+  const wz = fz * cos - fx * sin;
+  const target2 = new THREE.Vector3(wx, 0, wz).multiplyScalar(CFG.walkSpeed);
+  player.vel.x += (target2.x - player.vel.x) * Math.min(1, CFG.accel * dt);
+  player.vel.z += (target2.z - player.vel.z) * Math.min(1, CFG.accel * dt);
+  if(len < 0.01){
+    player.vel.x -= player.vel.x * Math.min(1, CFG.damping * dt);
+    player.vel.z -= player.vel.z * Math.min(1, CFG.damping * dt);
+  }
+  player.pos.addScaledVector(player.vel, dt);
+  collide(player.pos);
+
+  const speed = Math.hypot(player.vel.x, player.vel.z);
+  player.bob += speed * dt * CFG.bobFreq * Math.PI;
+  player.stepAcc += speed * dt;
+  if(player.stepAcc > 1.55){ player.stepAcc = 0; Sound.step(); }
+}
+
+// ---------------------------------------------------------------- particle update
+function updateFire(dt, time){
+  for(let i = 0; i < fire.n; i++){
+    const d = fire.data[i];
+    d.life += dt;
+    if(d.life > d.max) resetFire(i);
+    const k = d.life / d.max;
+    d.x += (d.vx + Math.sin(time * 2.2 + i) * 0.16) * dt;
+    d.y += d.vy * dt;
+    d.z += (d.vz + Math.cos(time * 1.8 + i * 0.7) * 0.16) * dt;
+    d.vy += 0.55 * dt;
+    fire.pos[i*3] = d.x; fire.pos[i*3+1] = d.y; fire.pos[i*3+2] = d.z;
+    const heat = 1 - k;
+    fire.col[i*3]   = 1.0;
+    fire.col[i*3+1] = 0.30 + heat * 0.42;
+    fire.col[i*3+2] = 0.06 + heat * 0.14;
+    fire.siz[i] = d.size * (0.5 + heat * 0.9);
+    fire.alp[i] = Math.pow(heat, 1.4) * 0.85;
+  }
+  fire.geo.attributes.position.needsUpdate = true;
+  fire.geo.attributes.aCol.needsUpdate = true;
+  fire.geo.attributes.aSize.needsUpdate = true;
+  fire.geo.attributes.aAlpha.needsUpdate = true;
+}
+
+function updateMotes(dt, time){
+  for(let i = 0; i < motes.n; i++){
+    const d = motes.data[i];
+    d.x += (d.vx + Math.sin(time * 0.4 + d.ph) * 0.06) * dt;
+    d.y += d.vy * dt;
+    d.z += (d.vz + Math.cos(time * 0.33 + d.ph) * 0.06) * dt;
+    if(d.y > 5.2){ d.y = 0.3; d.x = rnd(-9, 9); d.z = rnd(-12, 8); }
+    motes.pos[i*3] = d.x; motes.pos[i*3+1] = d.y; motes.pos[i*3+2] = d.z;
+    if(d.warm){ motes.col[i*3] = 1.0; motes.col[i*3+1] = 0.72; motes.col[i*3+2] = 0.40; }
+    else { motes.col[i*3] = 0.66; motes.col[i*3+1] = 0.80; motes.col[i*3+2] = 1.0; }
+    motes.siz[i] = d.size;
+    motes.alp[i] = (0.16 + 0.24 * (0.5 + 0.5 * Math.sin(time * 1.3 + d.ph)));
+  }
+  motes.geo.attributes.position.needsUpdate = true;
+  motes.geo.attributes.aCol.needsUpdate = true;
+  motes.geo.attributes.aSize.needsUpdate = true;
+  motes.geo.attributes.aAlpha.needsUpdate = true;
+}
+
+function updateSpray(dt){
+  for(let i = 0; i < spray.n; i++){
+    const d = spray.data[i];
+    if(!valveOpen){ spray.alp[i] = 0; continue; }
+    d.life += dt;
+    if(d.life > d.max) resetSpray(i);
+    const k = 1 - d.life / d.max;
+    d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt;
+    d.vy -= 3.4 * dt;
+    spray.pos[i*3] = d.x; spray.pos[i*3+1] = d.y; spray.pos[i*3+2] = d.z;
+    spray.col[i*3] = 0.72; spray.col[i*3+1] = 0.88; spray.col[i*3+2] = 1.0;
+    spray.siz[i] = d.size;
+    spray.alp[i] = k * 0.5;
+  }
+  spray.geo.attributes.position.needsUpdate = true;
+  spray.geo.attributes.aCol.needsUpdate = true;
+  spray.geo.attributes.aSize.needsUpdate = true;
+  spray.geo.attributes.aAlpha.needsUpdate = true;
+}
+
+// ---------------------------------------------------------------- main loop
+const clock = new THREE.Clock();
+let time = 0;
+
+// Everything in the world that moves on its own, independent of the camera. Pulled out
+// of tick() so the teaser runs the identical animation — the cinematic is the live scene,
+// not a separate rig, so firelight, lantern breathing, the sea and the platter all keep
+// running exactly as they do in play.
+function animateWorld(dt, time){
+  // firelight flicker: three detuned sines plus a little noise, so it never loops audibly
+  // Raised with the lanterns for blue hour — the firepit is the warmest thing in the
+  // room and has to stay that way now the sky is carrying light.
+  fireLight.intensity = 4.4
+    + Math.sin(time * 11.3) * 0.42
+    + Math.sin(time * 17.1) * 0.26
+    + Math.sin(time * 3.1) * 0.32
+    + Math.random() * 0.34;
+  fireLight.position.set(
+    FIRE_POS.x + Math.sin(time * 5.1) * 0.07,
+    FIRE_POS.y + Math.sin(time * 7.7) * 0.05,
+    FIRE_POS.z + Math.cos(time * 4.3) * 0.07);
+
+  for(let i = 0; i < LANTERN_LIGHTS.length; i++){
+    const l = LANTERN_LIGHTS[i], p = l.userData.phase;
+    // two slow detuned sines per lamp: oil light that breathes rather than pulses
+    l.intensity = l.userData.base *
+      (1 + Math.sin(time * 2.3 + p) * 0.055 + Math.sin(time * 1.7 + p * 1.6) * 0.035);
+  }
+
+  waterUniforms.uTime.value = time;
+  for(let i = 0; i < CLOUDS.length; i++){
+    CLOUDS[i].position.x += CLOUDS[i].userData.drift * dt;
+    if(CLOUDS[i].position.x > 340) CLOUDS[i].position.x = -300;
+  }
+
+  if(recordPlaying){
+    platter.rotation.y += dt * 3.49;   // 33 rpm
+    tonearm.rotation.y += (0.16 - tonearm.rotation.y) * Math.min(1, 1.4 * dt);
+  } else {
+    tonearm.rotation.y += (-0.55 - tonearm.rotation.y) * Math.min(1, 1.4 * dt);
+  }
+
+  const wheelTarget = valveOpen ? -3.4 : 0;
+  valveSpin.rotation.z += (wheelTarget - valveSpin.rotation.z) * Math.min(1, 2.4 * dt);
+}
+
+function tick(){
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  time += dt;
+
+  if(state === 'play') updatePlayer(dt);
+
+  // The teaser owns the camera outright while it runs — free position, no collision,
+  // no eye height, no head bob. Everything else in the loop (fire, water, lanterns,
+  // audio mix) keeps running, which is what makes it a live scene and not a video.
+  if(state === 'teaser'){
+    Teaser.update(dt);
+    Sound.update(camera.position, false, valveOpen);
+    updateFire(dt, time); updateMotes(dt, time); updateSpray(dt);
+    animateWorld(dt, time);
+    if(COMPOSER){ if(GRADE) GRADE.uniforms.uTime.value = time; COMPOSER.render(); }
+    else renderer.render(scene, camera);
+    return;
+  }
+
+  // camera
+  if(state === 'menu'){
+    // A very slow drift behind the title screen, held on the firepit. A frozen frame
+    // behind a menu reads as a screenshot; this reads as a room you are about to walk
+    // into. The rates are deliberately below the threshold where the eye tracks motion.
+    // Framed off-axis on purpose: the firepit and the moon's path sit to one side of
+    // frame rather than dead centre behind the title, so the type always has a quiet
+    // area to land on as the camera drifts.
+    const a = time * 0.034;
+    camera.position.set(
+      -2.9 + Math.sin(a) * 2.6,
+      1.70 + Math.sin(time * 0.08) * 0.08,
+      4.4 + Math.cos(a * 0.8) * 1.3);
+    camera.lookAt(2.6, 1.35, -4.2);
+    const mf = vFov(CFG.hfovWalk);
+    if(Math.abs(camera.fov - mf) > 0.05){ camera.fov = mf; camera.updateProjectionMatrix(); }
+  } else {
+    const eye = seated ? CFG.seatHeight : CFG.eyeHeight;
+    const bobY = seated ? 0 : Math.sin(player.bob) * CFG.bobAmp;
+    const bobX = seated ? 0 : Math.cos(player.bob * 0.5) * CFG.bobAmp * 0.5;
+    camera.position.copy(player.pos);
+    camera.position.x += Math.cos(player.yaw) * bobX;
+    camera.position.z += -Math.sin(player.yaw) * bobX;
+    camera.position.y += eye + bobY;
+    camera.rotation.set(player.pitch, player.yaw, 0);
+    const fovTarget = vFov(seated ? CFG.hfovSeat : CFG.hfovWalk);
+    if(Math.abs(camera.fov - fovTarget) > 0.05){
+      camera.fov += (fovTarget - camera.fov) * Math.min(1, 3 * dt);
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  animateWorld(dt, time);
+
+  updateFire(dt, time);
+  updateMotes(dt, time);
+  updateSpray(dt);
+
+  if(state === 'play'){
+    updateTarget();
+    Sound.update(camera.position, !!seated, valveOpen);
+  }
+
+  if(COMPOSER){
+    if(GRADE) GRADE.uniforms.uTime.value = time;
+    COMPOSER.render();
+  } else {
+    renderer.render(scene, camera);
+  }
+}
+
+// ---------------------------------------------------------------- teaser / attract mode
+// An in-engine cinematic. Every frame here is the real scene with the real lighting —
+// nothing is pre-rendered — so the teaser can never promise something the game does
+// not actually look like.
+//
+// Shots are authored as a dolly: the camera eases from `a` to `b` while looking from
+// `la` to `lb`. Positions are free (not clamped to eye height or collision) because
+// this is a camera, not a player. Easing is smootherstep throughout — the brief for
+// this world is slow and unhurried, and a linear dolly reads as a security camera.
+const Teaser = (function(){
+  const V = function(x, y, z){ return new THREE.Vector3(x, y, z); };
+
+  const SHOTS = [
+    { // Drifting in off the lagoon. Opens on the *front* of the pavilion — from behind
+      // it is an unlit slab, and every warm thing in this world faces the water.
+      a: V(6.5, 2.25, -34), b: V(4.6, 1.95, -25),
+      la: V(0, 2.1, -1),    lb: V(0, 2.0, -1),
+      dur: 10.0, hfov: 92
+    },
+    { // the symmetric hero: the pavilion seen from the terrace, firepit dead centre
+      a: V(0, 1.72, -13.4), b: V(0, 1.68, -9.2),
+      la: V(0, 1.5, 2),     lb: V(0, 1.35, 0.5),
+      dur: 9.0,
+      // Not a date. Dating the scene makes the resort sound preserved rather than
+      // desirable, which is the opposite of the brief — and the image already says
+      // 1965 without help. The line should carry what the picture cannot: why anyone
+      // pays to be here. It also lands the title early, and the same three words will
+      // turn out to describe the founder and the dead guest.
+      cap: 'They come here to disappear.'
+    },
+    { // firelight. no caption — the room should be allowed to speak once.
+      a: V(3.6, 1.5, 2.6),  b: V(1.5, 1.32, -0.5),
+      la: V(0, 1.0, -2),    lb: V(0, 0.92, -2),
+      dur: 7.5
+    },
+    { // Garmus's turntable — the pitch calls this the emotional core. Camera is above
+      // the platter looking down, so the disc reads as an ellipse with the tonearm
+      // across it; at deck height it was edge-on and read as nothing.
+      a: V(-3.30, 2.02, 6.34), b: V(-3.72, 1.86, 6.62),
+      la: V(-4.46, 1.16, 7.55), lb: V(-4.46, 1.13, 7.55),
+      dur: 8.0, hfov: 72,
+      cap: 'The man who built it walked into the sea.'
+    },
+    { // The valve: repair is investigation.
+      // Re-pathed. The original dolly ended at (-7.45, -4.75) and there is a 5.4m pillar
+      // at (-7.7, -4.6) — the camera finished the shot inside it. This approach comes in
+      // from the open floor on the +z side and keeps better than 0.7m of clearance the
+      // whole way while still looking out past the valve toward the water.
+      a: V(-6.25, 1.62, -2.90), b: V(-7.05, 1.34, -3.45),
+      la: V(-8.80, 1.20, -5),   lb: V(-8.85, 1.15, -5),
+      dur: 7.5, hfov: 74,
+      cap: 'They sent for a plumber.'
+    },
+    { // The locked door, now lit by its own sconce. Held wide enough to read the door,
+      // the frame and the bar beyond it rather than one floating brass knob.
+      a: V(3.05, 1.82, 4.30), b: V(2.78, 1.74, 5.65),
+      la: V(2.42, 1.62, 8.12), lb: V(2.42, 1.58, 8.12),
+      dur: 7.0,
+      cap: 'By morning a guest is dead.'
+    },
+    { // rise and pull away
+      a: V(0, 1.8, -8.5), b: V(0.5, 8.2, -25),
+      la: V(0, 2.2, 1),   lb: V(0, 2.6, 2),
+      dur: 11.0,
+      cap: 'No one can leave. Everyone has the same motive.'
+    },
+    { // title, held over the moonlit water
+      a: V(3.0, 2.4, -19), b: V(3.6, 2.7, -22.5),
+      la: V(16, 7, -70),   lb: V(15, 7.5, -72),
+      dur: 12.0, hfov: 88,
+      card: true
+    }
+  ];
+
+  let active = false, idx = 0, t = 0, onDone = null, cutting = false;
+  // Caption and title-card visibility are latched off the same accumulated shot time as
+  // the camera, not off setTimeout. Scheduling them in wall-clock time meant any
+  // frame-rate variance — or a backgrounded tab — slid the words out from under the
+  // pictures they belong to.
+  let capOn = false, cardOn = false;
+  const capEl  = document.getElementById('cap');
+  const cardEl = document.getElementById('card');
+  const fadeEl = document.getElementById('fade');
+
+  // smootherstep: zero first and second derivative at both ends, so a move has no
+  // detectable start or stop
+  function ease(x){ x = THREE.MathUtils.clamp(x, 0, 1); return x*x*x*(x*(x*6 - 15) + 10); }
+
+  function showCap(text){
+    if(!text){ capEl.classList.remove('on'); return; }
+    capEl.textContent = text;
+    capEl.classList.add('on');
+  }
+
+  function beginShot(i){
+    idx = i; t = 0;
+    capOn = false; cardOn = false;
+    showCap(null);
+    cardEl.classList.remove('on');
+  }
+
+  function finish(){
+    if(!active) return;
+    active = false;
+    state = 'menu';
+    if(BOKEH) BOKEH.enabled = false;   // play stays sharp
+    document.body.classList.remove('cine');
+    showCap(null);
+    cardEl.classList.remove('on');
+    fadeEl.style.opacity = 1;
+    Sound.stopMusic();
+    recordPlaying = false;
+    setTimeout(function(){
+      fadeEl.style.opacity = 0;
+      if(onDone) onDone();
+    }, 900);
+  }
+
+  return {
+    running: function(){ return active; },
+    // Runs the sequence. Audio has already been unlocked by the click that got here,
+    // so the record can start with the picture.
+    start: function(done){
+      onDone = done || null;
+      active = true;
+      cutting = false;
+      capOn = false; cardOn = false;
+      state = 'teaser';
+      seated = null;
+      if(BOKEH) BOKEH.enabled = true;   // shallow focus for the reel only
+      document.body.classList.add('cine');
+      cardEl.classList.remove('on');
+      fadeEl.style.opacity = 1;
+      try {
+        Sound.init(); Sound.resume();
+        // side one, track one: "Midnight Case on Kalakaua"
+        if(Sound.hasLibrary()){ Sound.playTrack(0); recordPlaying = true; }
+        else { Sound.startMusic(); recordPlaying = true; }
+      } catch(e){ /* silent teaser is still a teaser */ }
+      beginShot(0);
+      // hold on black for a moment, then open
+      setTimeout(function(){ fadeEl.style.opacity = 0; }, 700);
+    },
+    skip: function(){ if(active) finish(); },
+    update: function(dt){
+      if(!active) return;
+      const s = SHOTS[idx];
+      if(!s){ finish(); return; }
+      t += dt;
+
+      // The caption arrives a beat after the cut so the image lands first, and leaves
+      // before the cut so it never straddles two shots.
+      if(s.cap){
+        const want = t > 1.5 && t < s.dur - 1.2;
+        if(want !== capOn){ capOn = want; showCap(want ? s.cap : null); }
+      }
+      if(s.card && !cardOn && t > 2.2){ cardOn = true; cardEl.classList.add('on'); }
+
+      const k = ease(t / s.dur);
+      camera.position.lerpVectors(s.a, s.b, k);
+      const look = new THREE.Vector3().lerpVectors(s.la, s.lb, k);
+      camera.lookAt(look);
+
+      // Focus rides the look target, so whatever the shot is pointed at is what is
+      // sharp — no per-shot focus numbers to hand-tune and none to get out of sync
+      // when a camera move is retimed.
+      if(BOKEH && BOKEH.enabled){
+        const u = BOKEH.uniforms || (BOKEH.materialBokeh && BOKEH.materialBokeh.uniforms);
+        if(u && u.focus) u.focus.value = camera.position.distanceTo(look);
+      }
+      // the fov breathes very slightly inward across each shot: a long lens settling.
+      // `hfov` lets a shot pick its own focal length — close work wants a longer lens
+      // than an establishing wide, and shooting everything at one fov is what makes a
+      // reel feel like a camera on rails rather than a cut sequence.
+      const targetFov = vFov(s.hfov || CFG.hfovWalk) * (1 - 0.035 * k);
+      if(Math.abs(camera.fov - targetFov) > 0.01){
+        camera.fov = targetFov;
+        camera.updateProjectionMatrix();
+      }
+      if(t >= s.dur && !cutting){
+        if(idx + 1 < SHOTS.length){
+          // A short dip to black between shots reads as an edit rather than a teleport.
+          // `cutting` latches so this fires once, not once per frame while we wait.
+          cutting = true;
+          fadeEl.style.opacity = 1;
+          const next = idx + 1;
+          setTimeout(function(){
+            if(!active) return;
+            beginShot(next);
+            cutting = false;
+            fadeEl.style.opacity = 0;
+          }, 520);
+        } else {
+          finish();
+        }
+      }
+    },
+    totalSeconds: SHOTS.reduce(function(a, s){ return a + s.dur; }, 0),
+    shotCount: SHOTS.length,
+    // Park the camera at shot `i`, progress `k` (0..1), and render one frame. Used to
+    // review and tune framing without sitting through the reel in real time.
+    preview: function(i, k){
+      const s = SHOTS[i];
+      if(!s) return null;
+      const e = ease(k);
+      const look = new THREE.Vector3().lerpVectors(s.la, s.lb, e);
+      camera.position.lerpVectors(s.a, s.b, e);
+      camera.lookAt(look);
+      camera.fov = vFov(s.hfov || CFG.hfovWalk) * (1 - 0.035 * e);
+      if(BOKEH){
+        const u = BOKEH.uniforms || (BOKEH.materialBokeh && BOKEH.materialBokeh.uniforms);
+        if(u && u.focus) u.focus.value = camera.position.distanceTo(look);
+      }
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld(true);
+      animateWorld(0.016, 3.2);
+      updateFire(0.016, 3.2); updateMotes(0.016, 3.2);
+      if(COMPOSER){ if(GRADE) GRADE.uniforms.uTime.value = 3.2; COMPOSER.render(); }
+      else renderer.render(scene, camera);
+      return {shot: i, k: k, cap: s.cap || null, card: !!s.card,
+              pos: camera.position.toArray().map(function(v){ return +v.toFixed(2); })};
+    }
+  };
+})();
+
+// ---------------------------------------------------------------- boot / screens
+const startEl = document.getElementById('start');
+const pauseEl = document.getElementById('pause');
+const dropEl = document.getElementById('drop');
+
+// Controls are taught once, on first entry, and then never shown again — a title
+// screen that permanently lists its own keybindings reads as a debug build.
+let tutorShown = false;
+function showTutor(){
+  if(tutorShown) return;
+  tutorShown = true;
+  const el = document.getElementById('tutor');
+  if(!el) return;
+  setTimeout(function(){ el.classList.add('on'); }, 900);
+  setTimeout(function(){ el.classList.remove('on'); }, 8600);
+}
+
+// Settings live behind one quiet word rather than on the front page.
+(function(){
+  const t = document.getElementById('prefsToggle');
+  const p = document.getElementById('prefs');
+  if(!t || !p) return;
+  t.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    p.classList.toggle('open');
+    t.textContent = p.classList.contains('open') ? 'Close' : 'Settings';
+  });
+})();
+
+function enter(){
+  // The title screen has a catch-all click handler, so a click on "Teaser" can reach
+  // here too. Never let entering play stomp a running reel.
+  if(Teaser.running()) return;
+  showTutor();
+  // clear the UI first: if audio fails, the player is still in the scene
+  state = 'play';
+  startEl.style.display = 'none';
+  pauseEl.style.display = 'none';
+  const l = document.getElementById('loading');
+  if(l) l.style.display = 'none';
+  try {
+    if(!isTouch && canvas.requestPointerLock) canvas.requestPointerLock();
+  } catch(e){ /* pointer lock is optional */ }
+  try {
+    Sound.init();
+    Sound.resume();
+  } catch(e){
+    note('Audio unavailable on this device.');
+  }
+}
+
+function bindEnter(el){
+  if(!el) return;
+  ['click', 'touchend', 'pointerup'].forEach(function(ev){
+    el.addEventListener(ev, function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      enter();
+    }, {passive: false});
+  });
+}
+bindEnter(document.getElementById('enterBtn'));
+bindEnter(document.getElementById('resumeBtn'));
+
+// The teaser. Clicking is also the gesture that unlocks the AudioContext, which is why
+// the sequence is started from a button rather than auto-playing on load — an attract
+// reel with no soundtrack would undersell the whole thing.
+(function(){
+  const btn = document.getElementById('teaserBtn');
+  if(!btn) return;
+  ['click', 'touchend', 'pointerup'].forEach(function(ev){
+    btn.addEventListener(ev, function(e){
+      e.preventDefault(); e.stopPropagation();
+      if(Teaser.running()) return;
+      startEl.style.display = 'none';
+      pauseEl.style.display = 'none';
+      const l = document.getElementById('loading'); if(l) l.style.display = 'none';
+      Teaser.start(function(){ startEl.style.display = 'flex'; });
+    }, {passive: false});
+  });
+})();
+
+// Any input skips the reel, the way any attract mode should behave.
+['keydown', 'mousedown', 'touchstart'].forEach(function(ev){
+  addEventListener(ev, function(){ if(Teaser.running()) Teaser.skip(); }, {passive: true});
+});
+
+// tapping anywhere on a title screen also enters — except the file picker
+[startEl, pauseEl].forEach(function(el){
+  el.addEventListener('click', function(e){
+    if(e.target && e.target.closest && e.target.closest('.load, .opts, #prefs, #prefsToggle')) return;
+    enter();
+  });
+});
+
+// touch devices get their own control hints
+if(isTouch){
+  const k = document.querySelector('#start .keys');
+  if(k) k.innerHTML = 'Drag the left side — walk<br>Drag the right side — look<br>Tap — interact';
+}
+
+document.addEventListener('pointerlockchange', function(){
+  if(state === 'play' && !document.pointerLockElement && !isTouch){
+    state = 'paused';
+    pauseEl.style.display = 'flex';
+    document.getElementById('prompt').style.opacity = 0;
+  }
+});
+
+document.getElementById('musicFile').addEventListener('change', function(e){
+  if(e.target.files && e.target.files[0]){
+    Sound.loadFile(e.target.files[0], function(ok){
+      note(ok ? 'Record loaded. Drop the needle in the lounge.' : 'That file would not decode.');
+    });
+  }
+});
+['dragenter', 'dragover'].forEach(function(ev){
+  addEventListener(ev, function(e){ e.preventDefault(); dropEl.style.display = 'flex'; });
+});
+['dragleave', 'drop'].forEach(function(ev){
+  addEventListener(ev, function(e){ e.preventDefault(); dropEl.style.display = 'none'; });
+});
+addEventListener('drop', function(e){
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) Sound.loadFile(f, function(ok){
+    note(ok ? 'Record loaded.' : 'That file would not decode.');
+    if(ok && recordPlaying){ Sound.stopMusic(); setTimeout(function(){ Sound.startMusic(); }, 400); }
+  });
+});
+
+if(CFG.musicUrl) Sound.loadUrl(CFG.musicUrl, function(){});
+
+// Fetch the album catalog up front so the record player has something on it the
+// first time it's used. Failure is not an error: on file:// the fetch is blocked
+// and the generative loop stands in, exactly as before.
+if(CFG.libraryUrl){
+  Sound.loadLibrary(CFG.libraryUrl, function(ok, lib){
+    const el = document.getElementById('libInfo');
+    // Tucked inside Settings now. The album's length is not something a title screen
+    // should be announcing.
+    if(el) el.textContent = ok ? lib.title : 'serve over http for the album';
+  });
+}
+
+// Comfort controls. These are the settings most likely to be causing discomfort,
+// so they belong in the hands of whoever can actually see the screen.
+(function(){
+  const bob = document.getElementById('optBob');
+  const grain = document.getElementById('optGrain');
+  const fov = document.getElementById('optFov');
+  const sens = document.getElementById('optSens');
+  if(bob) bob.addEventListener('change', function(){
+    CFG.bobAmp = bob.checked ? 0.028 : 0.0;
+  });
+  if(grain) grain.addEventListener('change', function(){
+    // grain lives in the grade shader now; the CSS overlay is only the fallback path
+    if(GRADE){ GRADE.uniforms.uGrain.value = grain.checked ? 0.055 : 0.0; return; }
+    const el = document.getElementById('grain');
+    if(el) el.style.display = grain.checked ? 'block' : 'none';
+  });
+  if(fov) fov.addEventListener('input', function(){
+    CFG.hfovWalk = +fov.value;
+    CFG.hfovSeat = +fov.value * 0.82;
+    resize();
+  });
+  if(sens) sens.addEventListener('input', function(){
+    CFG.lookGainMouse = (+sens.value / 100) * 1.35;
+    CFG.lookGainTouch = (+sens.value / 100);
+  });
+})();
+
+function checkOrientation(){
+  const el = document.getElementById('rotate');
+  if(!el) return;
+  el.style.display = (isTouch && innerHeight > innerWidth) ? 'flex' : 'none';
+}
+addEventListener('resize', checkOrientation);
+addEventListener('orientationchange', function(){ setTimeout(checkOrientation, 300); });
+checkOrientation();
+
+// ---------------------------------------------------------------- image-based lighting
+// The single largest visual upgrade available to this scene. Every metal here —
+// brass, bronze, verdigris copper — was authored with high metalness and had nothing
+// to reflect, and a metal with no environment renders very nearly black. Capturing
+// the finished room into a cubemap once and handing it to scene.environment gives all
+// of them the lagoon, the moon, the fire and the lanterns to pick up, which is the
+// difference between "grey plastic" and "polished brass".
+//
+// Captured from standing height near the firepit so the IBL carries the room's real
+// story: dark wood on three sides, cool moonlit water on the fourth, warm fire below.
+(function buildEnvironment(){
+  try {
+    const rt = new THREE.WebGLCubeRenderTarget(256, {
+      format: THREE.RGBAFormat,
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter
+    });
+    const cam = new THREE.CubeCamera(0.4, 400, rt);
+    cam.position.set(0, 1.9, 0.4);
+    // Sprites, particles and the additive haze cones would all smear into the capture
+    // as bright blobs and then get reflected by every metal in the room.
+    const hidden = [];
+    scene.traverse(function(o){
+      if(o.isPoints || (o.material && o.material.isSpriteMaterial) ||
+         (o.material && o.material.blending === THREE.AdditiveBlending)){
+        hidden.push(o); o.visible = false;
+      }
+    });
+    cam.update(renderer, scene);
+    hidden.forEach(function(o){ o.visible = true; });
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileCubemapShader();
+    ENV_MAP = pmrem.fromCubemap(rt.texture).texture;
+    pmrem.dispose();
+    rt.dispose();
+
+    scene.environment = ENV_MAP;
+
+    // Per-material reflectivity. Uniform IBL flattens everything, so the metals get
+    // to shine and the matte surfaces (thatch, rattan, fabric) stay matte.
+    const gloss = {
+      brass: 1.55, bronze: 1.30, copper: 1.15, vinyl: 1.25, glass: 1.5,
+      bottle: 1.2, liquid: 1.1, wet: 0.95, stream: 1.2,
+      floor: 0.62, panel: 0.30, pillar: 0.38, beam: 0.22,
+      rattan: 0.18, fabric: 0.20, stone: 0.24, mat: 0.14,
+      thatch: 0.10, dark: 0.30, petal: 0.35, leaf: 0.22, frond: 0.18
+    };
+    Object.keys(gloss).forEach(function(k){
+      if(M[k] && M[k].isMeshStandardMaterial){
+        M[k].envMap = ENV_MAP;
+        M[k].envMapIntensity = gloss[k];
+        M[k].needsUpdate = true;
+      }
+    });
+
+    // Brass and bronze were authored rough enough to kill the reflection they now
+    // have. Tighten them so the highlight reads as metal rather than as grey.
+    M.brass.roughness = 0.22;  M.brass.metalness = 0.95;
+    M.bronze.roughness = 0.34; M.bronze.metalness = 0.85;
+    M.copper.roughness = 0.52; M.copper.metalness = 0.70;
+    M.vinyl.roughness = 0.20;  M.vinyl.metalness = 0.30;
+    [M.brass, M.bronze, M.copper, M.vinyl].forEach(function(m){ m.needsUpdate = true; });
+  } catch(e){
+    // IBL is an enhancement, never a dependency — the scene must still boot without it
+    if(window.console) console.warn('environment capture skipped:', e && e.message);
+  }
+})();
+
+// The grade shader draws its own vignette and grain, so retire the CSS overlays that
+// were standing in for them — keeping both would double the effect.
+if(COMPOSER){
+  const v = document.getElementById('vig'); if(v) v.style.display = 'none';
+  const g = document.getElementById('grain'); if(g) g.style.display = 'none';
+}
+
+// first frame, then reveal the menu
+renderer.compile(scene, camera);
+tick();
+setTimeout(function(){
+  document.getElementById('loading').style.display = 'none';
+  startEl.style.display = 'flex';
+}, 120);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a1420">
+<title>Liar's Lounge</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{ --gold:#e8c48a; --bone:#f2e6d0; --ink:#0a1420; --deep:#071019;
+         --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--deep);color:var(--bone);
+    font-family:'Jost',system-ui,sans-serif;overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none}
+  body{display:flex;flex-direction:column;
+    background:radial-gradient(ellipse at 50% 12%, #16324c 0%, #071019 62%);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+
+  .screen{flex:1;display:none;flex-direction:column;padding:26px 22px;overflow:hidden}
+  .screen.on{display:flex}
+
+  .brand{font-weight:200;font-size:26px;letter-spacing:.36em;text-indent:.36em;text-align:center;margin-top:8px}
+  .sub{font-family:var(--mono);font-size:9px;letter-spacing:.34em;text-transform:uppercase;
+    color:rgba(232,196,138,.75);text-align:center;margin-top:12px}
+  .rule{height:1px;margin:22px auto;width:70%;
+    background:linear-gradient(90deg,transparent,rgba(232,196,138,.6),transparent)}
+
+  label.f{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.28em;
+    text-transform:uppercase;color:rgba(242,230,208,.5);margin:20px 0 8px}
+  input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(242,230,208,.18);
+    border-radius:3px;padding:15px 16px;color:var(--bone);font-family:'Jost',sans-serif;
+    font-size:17px;letter-spacing:.05em;outline:none}
+  input:focus{border-color:rgba(232,196,138,.75)}
+  input#code{text-transform:uppercase;letter-spacing:.5em;text-align:center;font-size:30px;font-weight:300}
+
+  .btn{width:100%;margin-top:24px;padding:17px;border:1px solid rgba(242,230,208,.32);
+    border-radius:3px;background:transparent;color:var(--bone);font-family:'Jost',sans-serif;
+    font-size:13px;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;
+    transition:background .25s,border-color .25s}
+  .btn:active{background:rgba(232,196,138,.14)}
+  .btn.primary{border-color:rgba(232,196,138,.8);color:var(--gold)}
+  .btn[disabled]{opacity:.32;pointer-events:none}
+  .btn.danger{border-color:rgba(200,90,70,.75);color:#ffb9a3}
+
+  .avatars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+  .av{aspect-ratio:1;border:1px solid rgba(242,230,208,.16);border-radius:4px;
+    display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;
+    background:rgba(255,255,255,.03);transition:all .2s}
+  .av.sel{border-color:var(--gold);background:rgba(232,196,138,.16);transform:scale(1.06)}
+
+  .err{margin-top:16px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+    color:#ffb9a3;text-align:center;min-height:16px}
+
+  /* ---- table ---- */
+  .top{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:9px;letter-spacing:.24em;text-transform:uppercase;
+    color:rgba(242,230,208,.45)}
+  .callout{margin:20px 0 6px;text-align:center}
+  .callout .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.3em;
+    text-transform:uppercase;color:rgba(242,230,208,.45)}
+  .callout .rank{font-size:34px;font-weight:300;letter-spacing:.2em;color:var(--gold);margin-top:6px}
+  .status{text-align:center;font-size:15px;font-weight:300;letter-spacing:.05em;
+    color:rgba(242,230,208,.8);margin:14px 0 4px;min-height:22px}
+
+  .hand{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;padding:10px 0}
+  .card{width:66px;height:96px;border-radius:6px;border:1px solid rgba(242,230,208,.22);
+    background:linear-gradient(160deg,#152a3d,#0c1a27);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:6px;cursor:pointer;
+    transition:transform .18s cubic-bezier(.16,1,.3,1),border-color .18s,box-shadow .18s}
+  .card .g{font-size:27px;line-height:1}
+  .card .n{font-family:var(--mono);font-size:7px;letter-spacing:.16em;
+    text-transform:uppercase;color:rgba(242,230,208,.5)}
+  .card.sel{transform:translateY(-16px);border-color:var(--gold);
+    box-shadow:0 10px 26px -8px rgba(0,0,0,.85),0 0 0 1px rgba(232,196,138,.5)}
+  .card.wild{background:linear-gradient(160deg,#3a2b16,#1d1409);border-color:rgba(232,196,138,.45)}
+
+  .acts{display:flex;gap:10px}
+  .acts .btn{margin-top:0}
+
+  /* ---- the mugs ---- */
+  .mugs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px}
+  .mug{aspect-ratio:.85;border:1px solid rgba(242,230,208,.2);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer;
+    background:rgba(255,255,255,.03);transition:all .2s}
+  .mug:active{transform:scale(.94);border-color:var(--gold)}
+  .mug.gone{opacity:.18;pointer-events:none}
+
+  .dead{text-align:center;margin-top:40px}
+  .dead .big{font-size:40px}
+  .muted{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:rgba(242,230,208,.4);text-align:center;margin-top:14px;line-height:1.9}
+</style>
+</head>
+<body>
+
+<!-- ---------------------------------------------------------------- join -->
+<div class="screen on" id="sJoin">
+  <div class="brand">LIAR'S LOUNGE</div>
+  <div class="sub">The Magnanimis</div>
+  <div class="rule"></div>
+  <label class="f" for="code">Table code</label>
+  <input id="code" maxlength="4" autocomplete="off" autocapitalize="characters"
+         autocorrect="off" spellcheck="false" inputmode="latin" placeholder="––––">
+  <label class="f" for="name">Your name</label>
+  <input id="name" maxlength="14" autocomplete="off" placeholder="Guest">
+  <label class="f">Choose a face</label>
+  <div class="avatars" id="avs"></div>
+  <div class="err" id="joinErr"></div>
+  <button class="btn primary" id="joinBtn">Take a seat</button>
+</div>
+
+<!-- ---------------------------------------------------------------- lobby -->
+<div class="screen" id="sLobby">
+  <div class="top"><span id="lobbyCode">––––</span><span id="lobbyCount"></span></div>
+  <div class="callout">
+    <div class="lbl">You are seated</div>
+    <div class="rank" id="lobbyMe">🌺</div>
+  </div>
+  <div class="muted" id="lobbyList"></div>
+  <div style="flex:1"></div>
+  <button class="btn primary" id="startBtn" style="display:none">Deal the cards</button>
+  <div class="muted" id="lobbyHint">Waiting for the host to deal…</div>
+</div>
+
+<!-- ---------------------------------------------------------------- table -->
+<div class="screen" id="sTable">
+  <div class="top"><span id="tCode">––––</span><span id="tRound"></span></div>
+  <div class="callout">
+    <div class="lbl">The table calls for</div>
+    <div class="rank" id="tRank">—</div>
+  </div>
+  <div class="status" id="tStatus">…</div>
+  <div class="hand" id="hand"></div>
+  <div class="acts">
+    <button class="btn" id="playBtn" disabled>Play <span id="playN">0</span></button>
+    <button class="btn danger" id="liarBtn" disabled>Liar!</button>
+  </div>
+</div>
+
+<!-- ---------------------------------------------------------------- reckoning -->
+<div class="screen" id="sReckon">
+  <div class="callout">
+    <div class="lbl">You were wrong</div>
+    <div class="rank">THE RECKONING</div>
+  </div>
+  <div class="status">One of these is the bad one. Choose.</div>
+  <div class="mugs" id="mugs"></div>
+</div>
+
+<!-- ---------------------------------------------------------------- out / over -->
+<div class="screen" id="sOut">
+  <div class="dead">
+    <div class="big" id="outIcon">☠</div>
+    <div class="brand" style="font-size:20px;margin-top:20px" id="outTitle">OUT</div>
+    <div class="muted" id="outBody"></div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="muted">Watch the television.</div>
+</div>
+
+<script type="module">
+const AVATARS = ['🌺','🗿','💀','🥥','🦩','🐚','🍍','🌙'];
+const GLYPH = {ORCHID:'🌺', TIKI:'🗿', SKULL:'💀', WILD:'✦'};
+
+const $ = function(id){ return document.getElementById(id); };
+const screens = ['sJoin','sLobby','sTable','sReckon','sOut'];
+function show(id){ screens.forEach(function(s){ $(s).classList.toggle('on', s === id); }); }
+
+// Identity survives a refresh or a phone locking itself, so rejoining the same
+// table puts you back in your own seat with your own hand.
+let playerId = localStorage.getItem('ll.pid');
+if(!playerId){ playerId = 'p' + Math.random().toString(36).slice(2,9); localStorage.setItem('ll.pid', playerId); }
+
+let avatar = localStorage.getItem('ll.av') || AVATARS[0];
+let ws = null, view = null, me = null, selected = new Set();
+
+// avatar picker
+AVATARS.forEach(function(a){
+  const d = document.createElement('div');
+  d.className = 'av' + (a === avatar ? ' sel' : '');
+  d.textContent = a;
+  d.onclick = function(){
+    avatar = a; localStorage.setItem('ll.av', a);
+    Array.from($('avs').children).forEach(function(c){ c.classList.toggle('sel', c === d); });
+  };
+  $('avs').appendChild(d);
+});
+$('name').value = localStorage.getItem('ll.name') || '';
+$('code').value = (new URL(location.href)).searchParams.get('code') || '';
+
+function connect(code, name){
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(proto + '://' + location.host);
+  ws.onopen = function(){
+    ws.send(JSON.stringify({type:'JOIN', code: code, playerId: playerId, name: name, avatar: avatar}));
+  };
+  ws.onmessage = function(ev){
+    const m = JSON.parse(ev.data);
+    if(m.type === 'error'){ $('joinErr').textContent = m.reason; return; }
+    if(m.type === 'joined'){ localStorage.setItem('ll.name', name); return; }
+    if(m.type === 'state'){ view = m.view; me = m.you; render(m.events || []); }
+  };
+  ws.onclose = function(){ $('joinErr').textContent = 'Disconnected. Pull down to reload.'; };
+}
+
+function act(action){ if(ws && ws.readyState === 1) ws.send(JSON.stringify({type:'ACTION', action: action})); }
+
+$('joinBtn').onclick = function(){
+  const code = $('code').value.trim().toUpperCase();
+  const name = $('name').value.trim() || 'Guest';
+  if(code.length !== 4){ $('joinErr').textContent = 'The code is four letters.'; return; }
+  $('joinErr').textContent = '';
+  connect(code, name);
+};
+$('code').addEventListener('input', function(e){ e.target.value = e.target.value.toUpperCase(); });
+$('startBtn').onclick = function(){ act({type:'START'}); };
+$('playBtn').onclick = function(){
+  if(!selected.size) return;
+  act({type:'PLAY_CARDS', cardIds: Array.from(selected)});
+  selected.clear();
+};
+$('liarBtn').onclick = function(){ act({type:'CHALLENGE'}); };
+
+// six mugs
+for(let i = 0; i < 6; i++){
+  const d = document.createElement('div');
+  d.className = 'mug'; d.textContent = '🍹'; d.dataset.i = i;
+  d.onclick = function(){ act({type:'PULL_MUG', mug: i}); };
+  $('mugs').appendChild(d);
+}
+
+function render(events){
+  if(!view || !me || !me.you) return;
+  const you = me.you;
+
+  if(view.phase === 'lobby'){
+    show('sLobby');
+    $('lobbyCode').textContent = view.roomCode;
+    $('lobbyCount').textContent = view.seats.length + ' seated';
+    $('lobbyMe').textContent = you.avatar;
+    $('lobbyList').innerHTML = view.seats.map(function(p){
+      return p.avatar + ' ' + p.name + (p.id === view.hostId ? ' · host' : '');
+    }).join('<br>');
+    $('startBtn').style.display = me.isHost ? '' : 'none';
+    $('startBtn').disabled = view.seats.length < 2;
+    $('lobbyHint').textContent = me.isHost
+      ? (view.seats.length < 2 ? 'At least two to a table.' : '')
+      : 'Waiting for the host to deal…';
+    return;
+  }
+
+  if(view.phase === 'gameOver'){
+    show('sOut');
+    const won = view.winnerId === you.id;
+    $('outIcon').textContent = won ? '🏆' : '☠';
+    $('outTitle').textContent = won ? 'YOU WIN' : 'OUT';
+    const w = view.seats.find(function(p){ return p.id === view.winnerId; });
+    $('outBody').textContent = won ? 'The last one telling the truth.'
+                                   : (w ? w.name + ' takes the table.' : '');
+    return;
+  }
+
+  if(!you.alive){
+    show('sOut');
+    $('outIcon').textContent = '☠';
+    $('outTitle').textContent = 'OUT';
+    $('outBody').textContent = 'You drank the wrong one.';
+    return;
+  }
+
+  if(me.mustPull){
+    show('sReckon');
+    Array.from($('mugs').children).forEach(function(d, i){
+      d.classList.toggle('gone', i >= you.mugs);
+    });
+    return;
+  }
+
+  // the table
+  show('sTable');
+  $('tCode').textContent = view.roomCode;
+  $('tRound').textContent = 'round ' + view.round;
+  $('tRank').textContent = (GLYPH[view.tableRank] || '') + ' ' + (view.tableRank || '');
+
+  const turnSeat = view.seats.find(function(p){ return p.id === view.turnId; });
+  if(view.phase === 'roundEnd'){
+    $('tStatus').textContent = 'Cards away. Next round…';
+  } else if(me.isYourTurn){
+    $('tStatus').textContent = view.lastPlay
+      ? 'Your turn. Believe them, or call it.'
+      : 'Your turn. Open the round.';
+  } else {
+    $('tStatus').textContent = (turnSeat ? turnSeat.name : 'Someone') + ' is thinking…';
+  }
+
+  // hand
+  const hand = $('hand');
+  hand.innerHTML = '';
+  you.hand.forEach(function(c){
+    const d = document.createElement('div');
+    d.className = 'card' + (c.rank === 'WILD' ? ' wild' : '') + (selected.has(c.id) ? ' sel' : '');
+    d.innerHTML = '<div class="g">' + (GLYPH[c.rank] || '?') + '</div><div class="n">' +
+                  (c.rank === 'WILD' ? 'wild' : c.rank.toLowerCase()) + '</div>';
+    d.onclick = function(){
+      if(!me.isYourTurn) return;
+      if(selected.has(c.id)) selected.delete(c.id);
+      else if(selected.size < 3) selected.add(c.id);
+      render([]);
+    };
+    hand.appendChild(d);
+  });
+
+  $('playN').textContent = selected.size;
+  $('playBtn').disabled = !(me.isYourTurn && selected.size > 0 && view.phase === 'play');
+  $('liarBtn').disabled = !me.canChallenge;
+}
+</script>
+</body>
+</html>

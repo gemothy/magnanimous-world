@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liar's Lounge — Magnanimis</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root{ --gold:#e8c48a; --bone:#f2e6d0; --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#050c14;color:var(--bone);
+    font-family:'Jost',system-ui,sans-serif;user-select:none;cursor:none}
+
+  /* Television-safe area. Broadcast overscan eats the outer 5% on a lot of sets,
+     so nothing that must be readable — least of all the join code — goes near it. */
+  .safe{position:absolute;inset:5% 5%;display:flex;flex-direction:column}
+
+  #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  #wash{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 46%, rgba(5,12,20,.35), rgba(4,9,16,.88) 72%)}
+  #grain{position:fixed;inset:-50%;z-index:2;opacity:.025;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  .stage{position:relative;z-index:3;height:100%}
+  .view{position:absolute;inset:0;display:none;flex-direction:column}
+  .view.on{display:flex}
+
+  /* ---------------- attract / lobby ---------------- */
+  /* Sized to leave real air around it — at 6.4vw the wordmark ran to both edges and
+     collided with the join panel underneath. */
+  .title{font-weight:200;font-size:clamp(30px,4.4vw,72px);letter-spacing:.38em;text-indent:.38em;
+    text-align:center;text-shadow:0 0 80px rgba(169,198,232,.3)}
+  .kicker{font-family:var(--mono);font-size:clamp(8px,.8vw,12px);letter-spacing:.44em;
+    text-transform:uppercase;color:rgba(232,196,138,.9);text-align:center;margin-top:16px}
+  .hr{width:min(30vw,340px);height:1px;margin:26px auto 0;
+    background:linear-gradient(90deg,transparent,rgba(232,196,138,.75),transparent)}
+
+  /* The join panel gets its own dark plate. Over a moving video, type alone is not
+     reliably readable — and the one thing on this screen that MUST be readable from a
+     sofa is the four letters someone is about to type into a phone. */
+  .joinbar{display:flex;align-items:center;justify-content:center;gap:clamp(20px,3.4vw,58px);
+    margin:auto;padding:clamp(20px,2.4vw,38px) clamp(28px,3.4vw,64px);
+    background:rgba(4,10,17,.5);border:1px solid rgba(242,230,208,.12);border-radius:4px;
+    backdrop-filter:blur(9px) saturate(115%)}
+  .joinbar .col{text-align:center}
+  .joinbar .lbl{font-family:var(--mono);font-size:clamp(8px,.75vw,11px);letter-spacing:.34em;
+    text-transform:uppercase;color:rgba(242,230,208,.5)}
+  .joinbar .url{font-size:clamp(20px,2.3vw,40px);font-weight:300;letter-spacing:.06em;margin-top:12px}
+  .code{font-size:clamp(46px,6.6vw,110px);font-weight:300;letter-spacing:.2em;text-indent:.2em;
+    color:var(--gold);margin-top:10px;text-shadow:0 0 60px rgba(232,196,138,.4),0 2px 20px rgba(0,0,0,.9)}
+  .divider{width:1px;align-self:stretch;background:linear-gradient(180deg,transparent,rgba(242,230,208,.28),transparent)}
+
+  /* seated guests */
+  .guests{display:flex;justify-content:center;gap:clamp(14px,2vw,34px);flex-wrap:wrap;padding-bottom:8px}
+  .guest{text-align:center;animation:pop .5s cubic-bezier(.16,1,.3,1)}
+  @keyframes pop{from{opacity:0;transform:translateY(18px) scale(.86)}to{opacity:1;transform:none}}
+  .guest .face{font-size:clamp(30px,3.4vw,58px);line-height:1;filter:drop-shadow(0 4px 14px rgba(0,0,0,.7))}
+  .guest .nm{font-family:var(--mono);font-size:clamp(8px,.8vw,12px);letter-spacing:.16em;
+    text-transform:uppercase;color:rgba(242,230,208,.72);margin-top:10px}
+  .guest.out{opacity:.24}
+  .guest.out .face{filter:grayscale(1)}
+  .guest.turn .face{transform:scale(1.16)}
+  .guest.turn .nm{color:var(--gold)}
+  .guest .mugs{font-size:clamp(7px,.7vw,10px);letter-spacing:.1em;color:rgba(232,196,138,.6);margin-top:4px}
+
+  /* ---------------- table ---------------- */
+  .tablehead{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:clamp(8px,.8vw,12px);letter-spacing:.3em;
+    text-transform:uppercase;color:rgba(242,230,208,.45)}
+  .centre{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .calls{font-family:var(--mono);font-size:clamp(9px,.85vw,13px);letter-spacing:.36em;
+    text-transform:uppercase;color:rgba(242,230,208,.5)}
+  .rank{font-size:clamp(44px,6.6vw,110px);font-weight:200;letter-spacing:.16em;color:var(--gold);
+    text-shadow:0 0 70px rgba(232,196,138,.3)}
+  .beat{font-size:clamp(17px,1.9vw,32px);font-weight:300;letter-spacing:.06em;
+    color:rgba(242,230,208,.9);min-height:1.4em;text-align:center;
+    text-shadow:0 2px 20px rgba(0,0,0,.9)}
+  .pile{display:flex;gap:8px;margin-top:6px;min-height:64px;align-items:center}
+  .back{width:44px;height:64px;border-radius:5px;border:1px solid rgba(242,230,208,.24);
+    background:linear-gradient(160deg,#16304a,#0a1826);animation:lay .34s cubic-bezier(.16,1,.3,1)}
+  @keyframes lay{from{opacity:0;transform:translateY(-28px) rotate(-8deg)}to{opacity:1;transform:none}}
+
+  /* the reveal */
+  .reveal{display:flex;gap:14px;margin-top:4px}
+  .rc{width:64px;height:92px;border-radius:6px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:4px;font-size:30px;
+    border:1px solid rgba(242,230,208,.3);background:linear-gradient(160deg,#1a3350,#0c1b2a);
+    animation:flip .5s cubic-bezier(.16,1,.3,1) backwards}
+  .rc small{font-family:var(--mono);font-size:7px;letter-spacing:.14em;text-transform:uppercase;
+    color:rgba(242,230,208,.55)}
+  .rc.bad{border-color:rgba(214,102,80,.85);box-shadow:0 0 34px -6px rgba(214,102,80,.7)}
+  .rc.good{border-color:rgba(150,196,140,.7)}
+  @keyframes flip{from{opacity:0;transform:rotateY(90deg) scale(.8)}to{opacity:1;transform:none}}
+  .verdict{font-size:clamp(26px,3.4vw,58px);font-weight:200;letter-spacing:.2em;margin-top:6px}
+  .verdict.lie{color:#ff9b7d} .verdict.truth{color:#a8d79a}
+
+  /* the reckoning */
+  .mugrow{display:flex;gap:clamp(10px,1.6vw,26px);margin-top:14px}
+  .mug{width:clamp(44px,5vw,84px);aspect-ratio:.82;border-radius:8px;
+    border:1px solid rgba(242,230,208,.22);background:rgba(255,255,255,.04);
+    display:flex;align-items:center;justify-content:center;font-size:clamp(22px,2.4vw,42px)}
+  .mug.gone{opacity:.14}
+  .mug.picked{border-color:var(--gold);transform:scale(1.14);
+    box-shadow:0 0 40px -8px rgba(232,196,138,.8)}
+  .mug.fatal{border-color:rgba(214,80,60,.95);
+    box-shadow:0 0 60px -6px rgba(214,80,60,.9);animation:shake .5s}
+  @keyframes shake{0%,100%{transform:scale(1.14) translateX(0)}
+    20%{transform:scale(1.14) translateX(-9px)}60%{transform:scale(1.14) translateX(9px)}}
+
+  /* now playing, bottom corner, deliberately quiet */
+  .np{position:absolute;left:0;bottom:0;font-family:var(--mono);
+    font-size:clamp(8px,.72vw,11px);letter-spacing:.24em;text-transform:uppercase;
+    color:rgba(242,230,208,.32)}
+  .flash{position:fixed;inset:0;z-index:6;pointer-events:none;background:#fff;opacity:0}
+</style>
+</head>
+<body>
+<video id="bg" autoplay muted loop playsinline></video>
+<div id="wash"></div>
+<div id="grain"></div>
+<div class="flash" id="flash"></div>
+
+<div class="safe">
+  <div class="stage">
+
+    <!-- lobby -->
+    <div class="view on" id="vLobby">
+      <div>
+        <div class="title">LIAR'S LOUNGE</div>
+        <div class="kicker">The Magnanimis &nbsp;·&nbsp; Beach Noir Revue</div>
+        <div class="hr"></div>
+      </div>
+      <div class="joinbar">
+        <div class="col">
+          <div class="lbl">On your phone, open</div>
+          <div class="url" id="joinUrl">—</div>
+        </div>
+        <div class="divider"></div>
+        <div class="col">
+          <div class="lbl">Table code</div>
+          <div class="code" id="code">····</div>
+        </div>
+      </div>
+      <div class="guests" id="lobbyGuests"></div>
+    </div>
+
+    <!-- table -->
+    <div class="view" id="vTable">
+      <div class="tablehead">
+        <span id="tCode">····</span>
+        <span id="tRound"></span>
+      </div>
+      <div class="centre">
+        <div class="calls">The table calls for</div>
+        <div class="rank" id="tRank">—</div>
+        <div class="pile" id="pile"></div>
+        <div class="beat" id="beat"></div>
+        <div class="reveal" id="reveal"></div>
+        <div class="verdict" id="verdict"></div>
+        <div class="mugrow" id="mugrow" style="display:none"></div>
+      </div>
+      <div class="guests" id="tableGuests"></div>
+      <div class="np" id="np"></div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+const GLYPH = {ORCHID:'🌺', TIKI:'🗿', SKULL:'💀', WILD:'✦'};
+const $ = function(id){ return document.getElementById(id); };
+
+// The lagoon loop the Cast receiver already uses — one asset, already made, already
+// on brand, and cheap enough that a Chromecast can hold 60fps while we composite over it.
+$('bg').src = '/assets/video/midnight-lagoon-loop.mp4';
+
+$('joinUrl').textContent = location.host + '/play';
+
+let ws, view = null, code = '····';
+
+function connect(){
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(proto + '://' + location.host);
+  ws.onopen = function(){
+    // A television always opens a NEW table unless it was sent a code to mirror.
+    const watch = new URL(location.href).searchParams.get('code');
+    ws.send(JSON.stringify(watch ? {type:'WATCH', code: watch} : {type:'HOST_SCREEN'}));
+  };
+  ws.onmessage = function(ev){
+    const m = JSON.parse(ev.data);
+    if(m.type === 'hosting'){ code = m.code; $('code').textContent = code; $('tCode').textContent = code; }
+    if(m.type === 'state'){ view = m.view; render(m.events || []); }
+  };
+  ws.onclose = function(){ setTimeout(connect, 1500); };
+}
+connect();
+
+function guestHtml(p, turnId){
+  const cls = 'guest' + (p.alive ? '' : ' out') + (p.id === turnId ? ' turn' : '');
+  const mugs = p.alive ? '<div class="mugs">' + '●'.repeat(Math.max(0,p.mugs)) + '</div>' : '';
+  return '<div class="' + cls + '"><div class="face">' + p.avatar + '</div>' +
+         '<div class="nm">' + p.name + '</div>' + mugs + '</div>';
+}
+
+let lastPhase = null, revealTimer = null;
+
+function render(events){
+  if(!view) return;
+
+  if(view.phase === 'lobby'){
+    $('vLobby').classList.add('on'); $('vTable').classList.remove('on');
+    $('lobbyGuests').innerHTML = view.seats.map(function(p){ return guestHtml(p, null); }).join('');
+    lastPhase = view.phase;
+    return;
+  }
+
+  $('vLobby').classList.remove('on'); $('vTable').classList.add('on');
+  $('tRound').textContent = 'round ' + view.round;
+  $('tRank').innerHTML = (GLYPH[view.tableRank] || '') + ' ' + (view.tableRank || '');
+  $('tableGuests').innerHTML = view.seats.map(function(p){ return guestHtml(p, view.turnId); }).join('');
+
+  // face-down pile
+  $('pile').innerHTML = new Array(Math.min(view.pileCount, 14)).fill('<div class="back"></div>').join('');
+
+  const turn = view.seats.find(function(p){ return p.id === view.turnId; });
+
+  // ---- dramatic beats, driven by events rather than by polling state ----
+  for(const e of events){
+    if(e.type === 'played'){
+      const who = view.seats.find(function(p){ return p.id === e.playerId; });
+      $('beat').textContent = (who ? who.name : '') + ' lays ' + e.count +
+        (e.count === 1 ? ' card' : ' cards') + ', and calls them ' + view.tableRank + '.';
+    }
+    if(e.type === 'challenge'){
+      const by = view.seats.find(function(p){ return p.id === e.byId; });
+      $('beat').textContent = (by ? by.name : 'Someone') + ' calls it a lie.';
+    }
+    if(e.type === 'reveal'){
+      $('reveal').innerHTML = e.cards.map(function(c, i){
+        const ok = c.rank === view.tableRank || c.rank === 'WILD';
+        return '<div class="rc ' + (ok ? 'good' : 'bad') + '" style="animation-delay:' + (i*0.16) + 's">' +
+               (GLYPH[c.rank] || '?') + '<small>' + c.rank.toLowerCase() + '</small></div>';
+      }).join('');
+      $('verdict').className = 'verdict ' + (e.liar ? 'lie' : 'truth');
+      $('verdict').textContent = e.liar ? 'A LIE' : 'THE TRUTH';
+    }
+    if(e.type === 'reckoning'){
+      const who = view.seats.find(function(p){ return p.id === e.playerId; });
+      $('beat').textContent = (who ? who.name : '') + ' goes to the bar.';
+    }
+    if(e.type === 'mug'){
+      const mugs = $('mugrow').children;
+      if(mugs[e.mug]) mugs[e.mug].classList.add(e.bad ? 'fatal' : 'picked');
+      if(e.bad){
+        const f = $('flash');
+        f.style.transition = 'none'; f.style.opacity = '.85';
+        requestAnimationFrame(function(){
+          f.style.transition = 'opacity 1.1s ease'; f.style.opacity = '0';
+        });
+      }
+    }
+    if(e.type === 'eliminated'){
+      const who = view.seats.find(function(p){ return p.id === e.playerId; });
+      $('verdict').className = 'verdict lie';
+      $('verdict').textContent = (who ? who.name.toUpperCase() : '') + ' IS OUT';
+    }
+    if(e.type === 'deal'){
+      $('reveal').innerHTML = ''; $('verdict').textContent = '';
+      $('mugrow').style.display = 'none';
+      $('beat').textContent = 'Cards dealt. ' + e.tableRank + ' is the call.';
+    }
+    if(e.type === 'gameOver'){
+      const w = view.seats.find(function(p){ return p.id === e.winnerId; });
+      $('verdict').className = 'verdict truth';
+      $('verdict').textContent = (w ? w.name.toUpperCase() : 'NOBODY') + ' TAKES THE TABLE';
+    }
+  }
+
+  // the six mugs appear only while someone is at the bar
+  if(view.phase === 'reckoning' && view.reckoning){
+    const p = view.seats.find(function(x){ return x.id === view.reckoning.playerId; });
+    if($('mugrow').style.display === 'none'){
+      $('mugrow').innerHTML = new Array(6).fill(0).map(function(_, i){
+        return '<div class="mug' + (p && i >= p.mugs ? ' gone' : '') + '">🍹</div>';
+      }).join('');
+      $('mugrow').style.display = '';
+    }
+  } else if(view.phase !== 'reckoning'){
+    $('mugrow').style.display = 'none';
+  }
+
+  if(view.phase === 'play' && !events.length){
+    if(turn) $('beat').textContent = turn.name + ' to act.';
+  }
+
+  // The round advances on the television's clock, so the drama has room to land
+  // before the next hand is dealt. The screen owns pacing; phones own intent.
+  if(view.phase === 'roundEnd' && lastPhase !== 'roundEnd'){
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(function(){
+      ws.send(JSON.stringify({type:'ACTION', action:{type:'NEXT_ROUND'}}));
+    }, 4200);
+  }
+  lastPhase = view.phase;
+}
+
+// ---------------------------------------------------------------- music
+// The Beach Noir Revue, shuffled. Autoplay is blocked until the television has had
+// any interaction, so this retries quietly rather than failing loudly.
+(async function music(){
+  let lib;
+  try { lib = await (await fetch('/assets/library.json')).json(); }
+  catch(e){ return; }
+  const order = lib.tracks.map(function(_, i){ return i; }).sort(function(){ return Math.random() - 0.5; });
+  let at = 0;
+  const a = new Audio();
+  a.volume = 0.55;
+  function play(){
+    const t = lib.tracks[order[at % order.length]];
+    a.src = '/assets/audio/' + String(t.n).padStart(2,'0') + '.m4a';
+    a.play().catch(function(){ setTimeout(play, 4000); });
+    $('np').textContent = 'now playing · ' + t.title;
+    at++;
+  }
+  a.addEventListener('ended', play);
+  play();
+  ['click','keydown'].forEach(function(ev){
+    addEventListener(ev, function(){ if(a.paused) a.play().catch(function(){}); }, {once:true});
+  });
+})();
+</script>
+</body>
+</html>

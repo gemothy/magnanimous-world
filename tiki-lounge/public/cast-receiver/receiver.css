@@ -1,0 +1,179 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    "Avenir Next", Avenir, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: #061012;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #061012;
+}
+
+.castMediaElement {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #061012;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.atmosphere,
+.themeWash,
+.themeTransition,
+.edgeVignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.atmosphere {
+  z-index: 2;
+}
+
+.themeWashNight {
+  opacity: 0.18;
+  background:
+    linear-gradient(180deg, rgba(3, 11, 18, 0.25), transparent 45%),
+    radial-gradient(
+      circle at 68% 24%,
+      rgba(126, 169, 185, 0.11),
+      transparent 42%
+    );
+  mix-blend-mode: multiply;
+}
+
+.themeWashDay {
+  opacity: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(180, 225, 232, 0.23),
+      rgba(78, 160, 166, 0.08) 54%,
+      rgba(248, 198, 112, 0.12)
+    ),
+    radial-gradient(
+      circle at 74% 25%,
+      rgba(255, 236, 185, 0.31),
+      transparent 45%
+    );
+  mix-blend-mode: screen;
+}
+
+body[data-theme="day"] .themeWashNight {
+  opacity: 0;
+}
+
+body[data-theme="day"] .themeWashDay {
+  opacity: 0.52;
+}
+
+.themeTransition {
+  z-index: 10;
+  opacity: 0;
+  background:
+    radial-gradient(
+      ellipse at 67% 38%,
+      rgba(255, 232, 176, 0.78),
+      rgba(65, 119, 120, 0.22) 43%,
+      transparent 69%
+    ),
+    linear-gradient(145deg, #173b3d 0%, #0c292d 48%, #06191d 100%);
+  transition: opacity 2s cubic-bezier(0.42, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+body[data-transition="day-to-night"] .themeTransition {
+  background:
+    radial-gradient(
+      ellipse at 67% 38%,
+      rgba(93, 146, 153, 0.28),
+      rgba(17, 54, 61, 0.18) 44%,
+      transparent 70%
+    ),
+    linear-gradient(145deg, #102d34 0%, #071d27 49%, #030d15 100%);
+}
+
+body[data-transition-phase="covering"] .themeTransition,
+body[data-transition-phase="covered"] .themeTransition {
+  opacity: 1;
+  transition-duration: 1.6s;
+}
+
+body[data-transition-phase="covered"] .themeTransition {
+  transition: none;
+}
+
+body[data-transition-phase="revealing"] .themeTransition {
+  opacity: 0;
+  transition-duration: 2s;
+}
+
+.edgeVignette {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.2), transparent 24%),
+    radial-gradient(ellipse at center, transparent 54%, rgba(0, 0, 0, 0.32));
+}
+
+.receiverMark {
+  position: fixed;
+  z-index: 3;
+  top: max(4.5vh, 32px);
+  left: max(4.5vw, 48px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: rgba(245, 231, 198, 0.76);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  animation: markArrival 9s ease both;
+}
+
+.receiverMonogram {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgba(235, 204, 143, 0.58);
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  letter-spacing: 0;
+}
+
+.receiverName {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+@keyframes markArrival {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  16%,
+  58% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
