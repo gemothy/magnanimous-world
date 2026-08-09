@@ -253,7 +253,7 @@ const CFG = {
   hfovWalk: 85, hfovSeat: 70,       // narrow fov worsens sim sickness; wide distorts edges
   // Blue-hour haze rather than midnight murk, and slightly thinner so the far shore and
   // the peak stay readable — at this hour you can see the whole bay.
-  fogColor: 0x1d4468, fogDensity: 0.0036,
+  fogColor: 0x0d2138, fogDensity: 0.0036,
   reach: 3.6,
   musicUrl: '',         // point at './music/track.mp3' when serving over http
   // The Beach Noir Revue. Generated from tiki-lounge by scripts/build-library.mjs;
@@ -276,7 +276,7 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias:!LOW, powerPreferenc
 renderer.setPixelRatio(Math.min(devicePixelRatio, LOW ? 1.6 : 2));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.14;
+renderer.toneMappingExposure = 1.02;
 renderer.shadowMap.enabled = !LOW;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const maxAniso = renderer.capabilities.getMaxAnisotropy();
@@ -300,7 +300,9 @@ const GradeShader = {
   uniforms: {
     tDiffuse:    {value: null},
     uTime:       {value: 0},
-    uGrain:      {value: 0.055},
+    // Down from 0.055. That figure was set against a much brighter image and with the
+    // old shadow-weighted falloff; see the grain block in the fragment shader.
+    uGrain:      {value: 0.030},
     uVignette:   {value: 1.0},
     uVigDepth:   {value: 0.30},   // how dark the corners fall. The CSS overlay this
                                   // replaced sat near 0.25, and that heavy framing is
@@ -349,9 +351,24 @@ const GradeShader = {
     // vignette, gentler than the CSS one it replaces so it reads as a lens not a mask
     '  float vig = smoothstep(0.62, 0.02, r2 * uVignette);',
     '  col *= mix(uVigDepth, 1.0, vig);',
-    // animated grain, scaled by luminance so it lives in the shadows like real stock
-    '  float n = fract(sin(dot(vUv * 512.0 + uTime * 60.0, vec2(12.9898, 78.233))) * 43758.5453);',
-    '  col += (n - 0.5) * uGrain * (1.15 - lum);',
+    // Animated grain, weighted to the midtones.
+    //
+    // This was scaled by (1.15 - lum), i.e. strongest in the darkest parts of the frame.
+    // That was tolerable while the scene was a bright blue hour, but once the image was
+    // regraded to a night — roughly seventy percent of it below L40 — that weighting put
+    // maximum grain across almost the whole picture and the result crawled. Measured at
+    // a 30fps step it was moving the *static* terrace by a mean of 3.3 levels a frame
+    // while the water itself, waves and all, moved by 0.19.
+    //
+    // Real stock granulates in the midtones and has nothing to granulate in deep shadow
+    // or blown highlight, so this is both the correct behaviour and the quiet one.
+    //
+    // Reseeding is quantised to about twelve times a second. At 60fps a fresh hash every
+    // frame is five times film's own rate, which is what turns grain into a shimmer
+    // rather than a texture.
+    '  float gt = floor(uTime * 12.0);',
+    '  float n = fract(sin(dot(vUv * 512.0 + gt * 5.0, vec2(12.9898, 78.233))) * 43758.5453);',
+    '  col += (n - 0.5) * uGrain * (4.0 * lum * (1.0 - lum));',
     '  gl_FragColor = vec4(max(col, vec3(0.0)), 1.0);',
     '}'
   ].join('\n')
@@ -432,7 +449,14 @@ let COMPOSER = null, BLOOM = null, GRADE = null, SMAA = null, BOKEH = null, SSAO
     // linear 0.2 reads as 0.48 — at 0.62 it caught the cream cushions and half the
     // room and hazed everything. At 0.86 it keeps to what should actually bloom: the
     // fire, the lantern shades, the moon's path and the clouds.
-    BLOOM = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.75, 0.86);
+    //
+    // The radius is the number that matters more than the strength. At 0.75 the glow
+    // from the fire and the moon path reached most of the way across the frame and put
+    // roughly 120 luminance levels onto the terrace stone — measured by rendering the
+    // same pixel with the pass on and off. That is why darkening the terrace albedo
+    // twice did almost nothing: the brightness was never coming from the surface.
+    // A tighter radius keeps the bloom on the thing that is glowing.
+    BLOOM = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.42, 0.42, 0.86);
     COMPOSER.addPass(BLOOM);
 
     GRADE = new THREE.ShaderPass(GradeShader);
@@ -516,6 +540,34 @@ function tex(size, fn, rx, ry){
   return t;
 }
 function rnd(a, b){ return a + Math.random() * (b - a); }
+
+// GLSL's smoothstep, on the CPU. Used to blend terrain regions and material bands where a
+// linear ramp would leave a visible crease.
+function smoothstep(e0, e1, x){
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+
+// Deterministic 2D value noise. Math.imul rather than a plain multiply: the product here
+// runs past Number.MAX_SAFE_INTEGER, the rounding eats exactly the low bits this reads,
+// and the failure is silent — every sample comes back identical and whatever depends on
+// the noise quietly turns into a flat surface.
+function hash2(i, j){
+  let n = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+}
+function vnoise2(u, v){
+  const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+  const su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv);
+  const a = hash2(i, j), b = hash2(i + 1, j), c = hash2(i, j + 1), d = hash2(i + 1, j + 1);
+  return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
+}
+function fbm2(u, v){
+  let f = 0, amp = 0.5, fr = 1;
+  for(let o = 0; o < 5; o++){ f += amp * vnoise2(u * fr, v * fr); fr *= 2.03; amp *= 0.5; }
+  return f;
+}
 
 const T = {};
 
@@ -699,39 +751,128 @@ T.moonSprite = new THREE.CanvasTexture(cvs(512, function(x, s){
   x.fillStyle = g; x.fillRect(0, 0, s, s);
 }));
 
+// Cumulus, not haze.
+//
+// This was two dozen overlapping radial gradients at 30% alpha, which is a recipe for
+// fog: no edge anywhere, no internal structure, and every cloud identical to every other
+// once blurred. Against the darkened sky it read as smudges on the lens.
+//
+// A cloud is legible because of two things this now has. It has a *crisp* boundary —
+// cauliflower, not cotton wool — which comes from thresholding a noise field hard rather
+// than fading it out. And it is lit from one side: bright tops, dark bases, because the
+// depth of water vapour between the moon and the eye is far greater looking up into the
+// underside of a cloud than glancing off its shoulder. Flat-shaded cloud reads as paper.
 T.cloud = new THREE.CanvasTexture(cvs(256, function(x, s){
-  x.clearRect(0, 0, s, s);
-  for(let i = 0; i < 24; i++){
-    const cx = rnd(s * 0.2, s * 0.8), cy = rnd(s * 0.35, s * 0.65), r = rnd(s * 0.09, s * 0.22);
-    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, 'rgba(206,226,255,.30)');
-    g.addColorStop(1, 'rgba(206,226,255,0)');
-    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+  // Cheap integer-hash value noise. No dependency, deterministic, and at this size the
+  // whole texture builds in a couple of milliseconds at boot.
+  // Math.imul, not `*`. A plain multiply here produces about 2.7e18, which is past
+  // Number.MAX_SAFE_INTEGER, so the low bits — the only ones the shift-and-mask keeps —
+  // are rounded away and every sample comes back the same. The symptom is a texture with
+  // an alpha channel of exactly zero everywhere, i.e. no clouds at all and nothing on
+  // screen to suggest why.
+  const hash = function(i, j){
+    let n = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const vnoise = function(u, v){
+    const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+    const su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv);
+    const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
+    return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
+  };
+  const fbm = function(u, v){
+    let f = 0, amp = 0.5, fr = 1;
+    for(let o = 0; o < 5; o++){ f += amp * vnoise(u * fr, v * fr); fr *= 2.03; amp *= 0.5; }
+    return f;
+  };
+  const img = x.createImageData(s, s);
+  for(let py = 0; py < s; py++){
+    for(let px = 0; px < s; px++){
+      const u = px / s, v = py / s;
+      // Warping the domain with another noise field is what turns smooth hills into
+      // billows — without it the threshold produces blobs with wandering but basically
+      // round outlines.
+      const w = fbm(u * 4.0 + 5.2, v * 4.0 + 1.3);
+      const d = fbm(u * 5.0 + w * 1.7, v * 5.0 + w * 1.7);
+      // Threshold first, taper second. Doing it the other way round pulls the density
+      // under the cut everywhere except the dead centre of the sheet, and the cloud
+      // disappears — the taper is meant to hide the billboard's corners, not to carve
+      // the shape.
+      // A higher cut leaves open sky between the billows. Cover the whole sheet and the
+      // band merges into overcast, which reads as weather rather than as a fine night.
+      let a = (d - 0.56) / 0.14;
+      a = a < 0 ? 0 : (a > 1 ? 1 : a);
+      a = a * a * (3 - 2 * a);
+      a *= Math.pow(Math.sin(Math.PI * u) * Math.sin(Math.PI * v), 0.75);
+      // v runs 0 at the top of the sheet, so this is bright crown into shadowed base.
+      // The range is wide on purpose: a cumulus lit by a small bright source has a very
+      // large ratio between its crown and its underside, and compressing that is what
+      // makes cloud look like grey paper.
+      const lit = Math.pow(1 - v, 1.7);
+      const o = (py * s + px) * 4;
+      img.data[o]     = 255 * (0.86 * lit + 0.045);
+      img.data[o + 1] = 255 * (0.90 * lit + 0.060);
+      img.data[o + 2] = 255 * (0.98 * lit + 0.090);
+      img.data[o + 3] = 255 * a;
+    }
   }
+  x.putImageData(img, 0, 0);
 }));
+T.cloud.encoding = THREE.sRGBEncoding;
 
 // ---------------------------------------------------------------- materials
 const M = {
   // satin-finished hardwood: low enough roughness to carry a soft reflection of the
   // firepit and the moon path down the length of the deck, which is most of what makes
   // a dark floor read as expensive rather than as a flat brown plane
-  floor:  new THREE.MeshStandardMaterial({map:T.wood, roughness:0.42, metalness:0.04, bumpMap:T.wood, bumpScale:0.010}),
-  panel:  new THREE.MeshStandardMaterial({map:T.panel, roughness:0.86}),
-  pillar: new THREE.MeshStandardMaterial({map:T.carve, roughness:0.78, bumpMap:T.carve, bumpScale:0.06}),
-  beam:   new THREE.MeshStandardMaterial({map:T.panel, roughness:0.9}),
-  rattan: new THREE.MeshStandardMaterial({map:T.rattan, roughness:0.92, bumpMap:T.rattan, bumpScale:0.02}),
+  // The colour tints on the floor, mat, fabric and wet stone are all doing one job:
+  // holding the deck below the practicals. Untinted, these four cover most of the frame
+  // and every one of them came out brighter than the firepit, which inverts the entire
+  // warm-inside/cool-outside premise — the eye reads the largest bright area as the
+  // subject, and that was the floor.
+  // These tints are albedo, and albedo is where the deck was really going wrong. Dark
+  // tropical hardwood reflects around a tenth of what hits it and a woven mat maybe a
+  // fifth; these were sitting near 0.7, which is closer to unfinished pine. No amount of
+  // lighting work fixes a floor that is physically the wrong colour — it just produced a
+  // room that stayed pale however far the sky came down.
+  floor:  new THREE.MeshStandardMaterial({map:T.wood, color:0x6a5b47, roughness:0.42, metalness:0.04, bumpMap:T.wood, bumpScale:0.010}),
+  // The roof structure fills the top quarter of the hero framing. Untinted it sat at a
+  // lit mid-brown, which is a ceiling in a photograph taken with the lights on — in the
+  // target the structure overhead is nearly the darkest thing in the picture, and that
+  // is most of what makes the opening feel bright by contrast.
+  panel:  new THREE.MeshStandardMaterial({map:T.panel, color:0x7e7166, roughness:0.86}),
+  pillar: new THREE.MeshStandardMaterial({map:T.carve, color:0x8a7a6b, roughness:0.78, bumpMap:T.carve, bumpScale:0.06}),
+  beam:   new THREE.MeshStandardMaterial({map:T.panel, color:0x6d6157, roughness:0.9}),
+  rattan: new THREE.MeshStandardMaterial({map:T.rattan, color:0x9c8259, roughness:0.92, bumpMap:T.rattan, bumpScale:0.02}),
   // heavy linen keeps a faint sheen; fully matte fabric reads as felt
-  fabric: new THREE.MeshStandardMaterial({map:T.fabric, roughness:0.84, bumpMap:T.fabric, bumpScale:0.006}),
-  stone:  new THREE.MeshStandardMaterial({map:T.stone, roughness:0.86, bumpMap:T.stone, bumpScale:0.03}),
-  wet:    new THREE.MeshStandardMaterial({map:T.stone, color:0x8d8b84, roughness:0.26, metalness:0.05, bumpMap:T.stone, bumpScale:0.015}),
+  fabric: new THREE.MeshStandardMaterial({map:T.fabric, color:0x574e40, roughness:0.84, bumpMap:T.fabric, bumpScale:0.006}),
+  stone:  new THREE.MeshStandardMaterial({map:T.stone, color:0x5f5c55, roughness:0.94, bumpMap:T.stone, bumpScale:0.03}),
+  // Wet stone is a mirror, and a mirror's job here is to return a *narrow* column of
+  // moonlight, leaving the rest of the terrace dark. Roughness widens that column: at
+  // 0.60 the specular lobe covered the whole slab and washed it to near-white
+  // (measured: [249,240,223], against [54,63,79] with specular removed — the albedo was
+  // never the problem, which is why darkening it twice changed nothing). Grazing views
+  // make it worse, because Fresnel drives reflectance toward 1 across the whole plane.
+  // So this wants to go *down*, not up.
+  wet:    new THREE.MeshStandardMaterial({map:T.stone, color:0x3a3833, roughness:0.13, metalness:0.0, bumpMap:T.stone, bumpScale:0.015}),
   thatch: new THREE.MeshStandardMaterial({map:T.thatch, roughness:1, side:THREE.DoubleSide}),
-  mat:    new THREE.MeshStandardMaterial({map:T.mat, roughness:1}),
+  mat:    new THREE.MeshStandardMaterial({map:T.mat, color:0x4c4436, roughness:1}),
   brass:  new THREE.MeshStandardMaterial({color:0xc09242, roughness:0.32, metalness:0.88}),
-  copper: new THREE.MeshStandardMaterial({color:0x4f7f68, roughness:0.6, metalness:0.55}),
+  // Verdigris, several stops down. On a metal the base colour is also the specular
+  // colour, so 0x4f7f68 — which as a linear value is a pale mint — made the pipe runs
+  // the brightest, most saturated thing in the arrival shot: a glowing cyan bar across
+  // the terrace, twenty units out, at night. They are the story's core prop and want to
+  // read when you are standing at them, not from the water.
+  copper: new THREE.MeshStandardMaterial({color:0x1e3228, roughness:0.6, metalness:0.55}),
   bronze: new THREE.MeshStandardMaterial({color:0x6a4a26, roughness:0.4, metalness:0.72}),
   dark:   new THREE.MeshStandardMaterial({color:0x0b0806, roughness:0.96}),
   vinyl:  new THREE.MeshStandardMaterial({color:0x0a0a0c, roughness:0.32, metalness:0.12}),
-  frond:  new THREE.MeshStandardMaterial({map:T.frond, transparent:true, alphaTest:0.42, side:THREE.DoubleSide, roughness:1}),
+  // Tinted well down. Untinted, the planting nearest the camera lit up to a bright
+  // saturated green and read as a houseplant under a lamp — the opposite of what it is
+  // there to do. Foliage framing a night view works by falling to near-silhouette, so
+  // that the darkest values in the frame sit directly against the brightest.
+  frond:  new THREE.MeshStandardMaterial({map:T.frond, color:0x46512f, transparent:true, alphaTest:0.42, side:THREE.DoubleSide, roughness:1}),
   glass:  new THREE.MeshStandardMaterial({color:0xdff2f0, roughness:0.05, transparent:true, opacity:0.3}),
   liquid: new THREE.MeshStandardMaterial({color:0xd8763a, roughness:0.18, transparent:true, opacity:0.85}),
   bottle: new THREE.MeshStandardMaterial({color:0x2e6b4a, roughness:0.16, transparent:true, opacity:0.7}),
@@ -743,6 +884,28 @@ const M = {
   stream: new THREE.MeshStandardMaterial({color:0xbfe6e2, roughness:0.1, transparent:true, opacity:0.5})
 };
 
+// How many texture tiles each material wants per world unit, for boxUV() further down.
+// One unit is one metre, so these are read directly as physical sizes: rattan at 4.5
+// puts a tile every 22cm, and since the weave texture is 12 cells across that lands the
+// individual canes at just under 2cm — which is what rattan actually is. The old
+// per-face mapping was giving them roughly 13cm, hence the corrugated-cardboard look.
+//
+// Anything not listed keeps stock uvs. That is deliberate: cylinders, planes, fronds and
+// the carved pillars are not boxes and are mapped correctly already.
+const TPU = {
+  rattan: 4.5,   // cane weave, ~2cm strands
+  fabric: 3.4,   // heavy linen
+  floor:  1.35,  // five planks per tile, ~15cm each
+  mat:    2.2,   // coarse woven floor mat
+  stone:  0.9,   // roughly metre slabs
+  wet:    0.9,   // same stock as stone
+  panel:  1.1,   // wall boards
+  beam:   1.25,
+  thatch: 2.0,
+  pillar: 1.2
+};
+Object.keys(TPU).forEach(function(k){ if(M[k]) M[k].userData.tpu = TPU[k]; });
+
 // ---------------------------------------------------------------- lights
 const MOON_POS = new THREE.Vector3(26, 96, -300);
 const MOON_DIR = MOON_POS.clone().normalize();
@@ -751,7 +914,11 @@ const FIRE_POS = new THREE.Vector3(0, 0.95, -2);
 // Sky fill carries the blue hour indoors. At 0.40 with a near-black sky the interior
 // had almost no ambient and everything fell to silhouette; the resort should read as
 // open and occupied, not shuttered.
-scene.add(new THREE.HemisphereLight(0x5b8fc4, 0x241a10, 0.62));
+// Ambient fill has to come down with the sky it represents. At 0.62 against a darkened
+// sky the fill was no longer standing in for anything in the scene — it was just a flat
+// lift on every surface, which is precisely what flattens a night interior into an
+// evenly-lit room. The practicals carry the lounge from here.
+scene.add(new THREE.HemisphereLight(0x40679a, 0x1a1209, 0.26));
 
 const moonLight = new THREE.DirectionalLight(0x9dbde8, 0.66);
 moonLight.position.copy(MOON_DIR.clone().multiplyScalar(46));
@@ -803,8 +970,15 @@ const skyMat = new THREE.ShaderMaterial({
   // That cool-blue-against-warm-tungsten contrast is the entire reason hotels are
   // photographed at this hour and not at midnight.
   uniforms: {
-    uTop:    {value: new THREE.Color(0x0a2247)},   // zenith: deep, saturated, not black
-    uHor:    {value: new THREE.Color(0x2f6d99)},   // horizon: luminous blue
+    // Measured against reference/target.png rather than chosen: the target's sky sits
+    // around a quarter of the luminance these were carrying. The blue-hour direction in
+    // HANDOFF pushed the sky up to stop the resort reading as shut, and it worked, but
+    // it overshot into an evening so bright that the sea out-glowed the firepit and the
+    // whole warm-inside/cool-outside premise inverted. Saturation is what stops a dark
+    // sky reading as "closed", not brightness — so these keep their chroma and lose
+    // their value.
+    uTop:    {value: new THREE.Color(0x040e21)},   // zenith: deep, saturated, not black
+    uHor:    {value: new THREE.Color(0x113247)},   // horizon: luminous but not pale
     uGlow:   {value: new THREE.Color(0xbcd8f6)},   // moon
     uSunset: {value: new THREE.Color(0xd98a52)},   // residual warmth in the west
     uSunDir: {value: new THREE.Vector3(-0.45, 0.0, -0.89).normalize()},
@@ -828,10 +1002,13 @@ const skyMat = new THREE.ShaderMaterial({
     '  float sd = max(dot(normalize(vec3(d.x, 0.0, d.z)), uSunDir), 0.0);',
     '  float band = exp(-max(d.y, 0.0) * 7.0);',
     '  col += uSunset * pow(sd, 3.2) * band * 0.42;',
-    // moon disc and its halo
+    // Halo only — the disc itself is the sprite below. pow(m, 46) is twenty degrees
+    // wide, so as a "disc" it was a formless bright patch with no edge anywhere in it;
+    // the eye read it as haze rather than as the moon, which cost the scene its single
+    // strongest compositional anchor. The tight term now hugs the sprite instead.
     '  float m = max(dot(d, uMoon), 0.0);',
-    '  col += uGlow * pow(m, 46.0) * 0.55;',
-    '  col += uGlow * pow(m, 4.0) * 0.10;',
+    '  col += uGlow * pow(m, 900.0) * 0.30;',
+    '  col += uGlow * pow(m, 12.0) * 0.11;',
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n')
@@ -863,7 +1040,11 @@ scene.add(new THREE.Mesh(new THREE.SphereGeometry(760, 32, 20), skyMat));
 // moon disc + halo
 (function(){
   const d = MOON_DIR.clone().multiplyScalar(700);
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(210, 210),
+  // 210 units at radius 700 is a seventeen-degree disc — about thirty-four times the
+  // real moon, and far too large to have a readable edge at any framing. The target
+  // still puts the moon at roughly two and a half degrees, which is generous against
+  // the real half-degree but is what a photograph of this scene looks like.
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(30, 30),
     new THREE.MeshBasicMaterial({map:T.moonSprite, transparent:true, depthWrite:false, fog:false,
       blending:THREE.AdditiveBlending}));
   m.position.copy(d);
@@ -872,15 +1053,44 @@ scene.add(new THREE.Mesh(new THREE.SphereGeometry(760, 32, 20), skyMat));
 })();
 
 // clouds
-for(let i = 0; i < 7; i++){
-  const c = new THREE.Mesh(new THREE.PlaneGeometry(rnd(120, 240), rnd(40, 80)),
-    new THREE.MeshBasicMaterial({map:T.cloud, transparent:true, depthWrite:false, opacity:rnd(0.35, 0.8), fog:false}));
-  c.position.set(rnd(-260, 300), rnd(48, 130), rnd(-560, -300));
-  c.lookAt(0, c.position.y, 0);
-  c.userData.drift = rnd(0.25, 0.9);
-  scene.add(c);
-  CLOUDS.push(c);
+//
+// Two bands rather than one scatter. A single random spread of billboards gives a sky
+// with no structure — real cloud organises into layers, and the horizon band is what
+// gives the bay its distance because it sits behind the headland and above the sea.
+// The upper band is where the weather is, and it is kept near the moon's bearing so the
+// lit crowns have a reason to be lit.
+function cloudBand(count, spec){
+  for(let i = 0; i < count; i++){
+    const w = rnd(spec.w[0], spec.w[1]);
+    const c = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, w * rnd(spec.aspect[0], spec.aspect[1])),
+      new THREE.MeshBasicMaterial({map:T.cloud, transparent:true, depthWrite:false,
+        opacity:rnd(spec.opacity[0], spec.opacity[1]), fog:false}));
+    c.position.set(rnd(spec.x[0], spec.x[1]), rnd(spec.y[0], spec.y[1]), rnd(spec.z[0], spec.z[1]));
+    c.lookAt(0, c.position.y, 0);
+    c.userData.drift = rnd(spec.drift[0], spec.drift[1]);
+    scene.add(c);
+    CLOUDS.push(c);
+  }
 }
+// Horizon band: long, flat, dim, and behind the far shore — but still inside the sky
+// sphere. That sphere has radius 760 and is drawn from the inside, so anything placed
+// beyond it is simply occluded; the first spread of this band put a third of the clouds
+// out at 900+ units where they could never be seen.
+// Aspect is kept within reach of square. The noise in the texture is isotropic in uv, so
+// a sheet seven times wider than it is tall stretches every billow into a streak and the
+// band comes out looking like scratches on the sky rather than cloud. Length comes from
+// putting more sheets side by side, not from stretching one.
+cloudBand(8, {
+  w:[150, 260], aspect:[0.24, 0.36], opacity:[0.30, 0.55],
+  x:[-400, 420], y:[20, 50], z:[-560, -450], drift:[0.10, 0.30]
+});
+// Weather band: taller, brighter, and biased toward the moon's bearing so the crowns
+// that are lit are the ones nearest the thing lighting them.
+cloudBand(9, {
+  w:[120, 235], aspect:[0.46, 0.70], opacity:[0.45, 0.82],
+  x:[-180, 330], y:[62, 155], z:[-540, -330], drift:[0.28, 0.85]
+});
 
 // ---------------------------------------------------------------- shared point-sprite material
 function makePointsMat(scale){
@@ -920,8 +1130,16 @@ const waterUniforms = {
   // Lagoon at blue hour: the deep water holds a rich teal rather than going black, and
   // the shallows glow turquoise the way they do in every photograph of this place. The
   // old values (#061a26 / #14586a) were a midnight sea and made the resort look closed.
-  uDeep:   {value: new THREE.Color(0x0a3247)},
-  uShallow:{value: new THREE.Color(0x2c9cb4)},
+  //
+  // Both are darker than the first blue-hour pass, which had them lit like a pool at
+  // noon. The turquoise is still there, but it is now the brightest thing in the water
+  // rather than brighter than the lounge — the interior has to win that comparison or
+  // the whole warm-against-cool premise inverts.
+  uDeep:   {value: new THREE.Color(0x04121c)},
+  uShallow:{value: new THREE.Color(0x0d414d)},
+  // What the surface reflects at grazing angles. This is the sky near the horizon, so
+  // it must track uHor in the sky shader or the sea and the sky will not meet.
+  uSkyCol: {value: new THREE.Color(0x0a1c2c)},
   uMoonCol:{value: new THREE.Color(0xbcd8ff)},
   uFogCol: {value: new THREE.Color(CFG.fogColor)},
   uFogD:   {value: CFG.fogDensity},
@@ -939,10 +1157,15 @@ const waterMat = new THREE.ShaderMaterial({
     '  float t = uTime;',
     '  float h = 0.0;',
     '  vec2 dh = vec2(0.0);',
-    '  vec2 d1 = normalize(vec2(0.85, 0.52));  float k1 = 0.22, w1 = 0.75, a1 = 0.30;',
-    '  vec2 d2 = normalize(vec2(-0.35, 0.94)); float k2 = 0.47, w2 = 1.05, a2 = 0.16;',
-    '  vec2 d3 = normalize(vec2(0.62, -0.78)); float k3 = 1.15, w3 = 1.85, a3 = 0.055;',
-    '  vec2 d4 = normalize(vec2(0.15, 0.99));  float k4 = 2.60, w4 = 2.60, a4 = 0.022;',
+    // Slowed to roughly half, and the two fine components cut hard. This is a sheltered
+    // lagoon inside a reef, not open sea — and it is the *rate* of these that decides
+    // whether the moon's reflection sits on the water or races across it. The short
+    // wavelengths (k3, k4) are the worst offenders: they contribute little to the shape
+    // of the swell and most of the twitch in the reflected highlight.
+    '  vec2 d1 = normalize(vec2(0.85, 0.52));  float k1 = 0.22, w1 = 0.38, a1 = 0.30;',
+    '  vec2 d2 = normalize(vec2(-0.35, 0.94)); float k2 = 0.47, w2 = 0.55, a2 = 0.15;',
+    '  vec2 d3 = normalize(vec2(0.62, -0.78)); float k3 = 1.15, w3 = 0.88, a3 = 0.030;',
+    '  vec2 d4 = normalize(vec2(0.15, 0.99));  float k4 = 2.60, w4 = 1.20, a4 = 0.010;',
     '  h += a1 * sin(dot(p, d1) * k1 + w1 * t); dh += a1 * k1 * cos(dot(p, d1) * k1 + w1 * t) * d1;',
     '  h += a2 * sin(dot(p, d2) * k2 + w2 * t); dh += a2 * k2 * cos(dot(p, d2) * k2 + w2 * t) * d2;',
     '  h += a3 * sin(dot(p, d3) * k3 + w3 * t); dh += a3 * k3 * cos(dot(p, d3) * k3 + w3 * t) * d3;',
@@ -956,24 +1179,71 @@ const waterMat = new THREE.ShaderMaterial({
     '}'
   ].join('\n'),
   fragmentShader: [
-    'uniform vec3 uMoon, uDeep, uShallow, uMoonCol, uFogCol;',
-    'uniform float uFogD;',
+    'uniform vec3 uMoon, uDeep, uShallow, uMoonCol, uFogCol, uSkyCol;',
+    'uniform float uFogD, uTime;',
     'uniform vec2 uFire;',
     'varying vec3 vW;',
     'varying vec3 vN;',
+    // Value noise for the glitter breakup. It has to be noise: a product of two sines is
+    // a perfectly regular lattice, and that is what the previous version used — it tiled
+    // the moon path into a diamond grid that read as a rolling wave pattern rather than
+    // as scattered light, and no amount of slowing it down would have fixed that.
+    'float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }',
+    'float vnoise(vec2 p){',
+    '  vec2 i = floor(p), f = fract(p);',
+    '  vec2 u = f * f * (3.0 - 2.0 * f);',
+    '  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x),',
+    '             mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y);',
+    '}',
     'void main(){',
     '  vec3 N = normalize(vN);',
     '  vec3 V = normalize(cameraPosition - vW);',
     '  float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);',
-    '  vec3 col = mix(uDeep, uShallow, clamp(fres * 1.5, 0.0, 1.0));',
+    // Depth, not fresnel, decides how turquoise the water is. The lagoon shelves away
+    // from the terrace, so distance from the shoreline stands in for depth well enough.
+    //
+    // Driving it from fresnel — which is what this did — put the *brightest* turquoise
+    // at grazing angles, meaning at the horizon, which is precisely where a real sea is
+    // darkest. That single inversion is most of why the lagoon read as a lit swimming
+    // pool rather than as water, and why it out-shone the interior.
+    '  float shore = smoothstep(3.0, 52.0, distance(vW.xz, vec2(0.0, -6.0)));',
+    '  vec3 body = mix(uShallow, uDeep, shore);',
+    // At grazing angles the surface stops showing its own body colour and starts
+    // mirroring the sky, which at this hour is a dark blue.
+    '  vec3 col = mix(body, uSkyCol, clamp(fres * 1.35, 0.0, 1.0));',
     '  vec3 H = normalize(uMoon + V);',
     '  float ndh = max(dot(N, H), 0.0);',
-    '  col += uMoonCol * (pow(ndh, 260.0) * 3.4 + pow(ndh, 42.0) * 0.22);',
+    '  float dcam = distance(vW, cameraPosition);',
+    // A moon path is a wide corridor of thousands of individual glints, not a
+    // spotlight. The old pow(ndh, 260.0) * 3.4 was a lobe about four degrees across
+    // carrying more than three times the moon's own brightness, so it put all of its
+    // energy into a few pixels and blew them to white — the "hard blob" in HANDOFF.
+    // The lobe is now broad and dim, and the structure comes from breaking it up.
+    '  float path = pow(ndh, 34.0) * 0.62 + pow(ndh, 7.0) * 0.09;',
+    // The four vertex waves have wavelengths of 2.4 units and up, which is far too
+    // coarse to resolve glitter — the surface is mirror-smooth between them, which is
+    // exactly why the highlight came out continuous. This is the missing fine chop,
+    // done per fragment because the geometry cannot carry it.
+    '  vec2 q = vW.xz;',
+    // Two octaves of noise drifting slowly and in different directions, so the pattern
+    // never repeats and never resolves into a travelling wavefront. The time rates are
+    // roughly a seventh of what they were: the surface should breathe, not flicker.
+    '  float g = vnoise(q * 1.6 + vec2( uTime * 0.16, -uTime * 0.11)) * 0.62',
+    '          + vnoise(q * 4.1 + vec2(-uTime * 0.09,  uTime * 0.13)) * 0.38;',
+    '  g = smoothstep(0.36, 0.80, g);',
+    // Past a couple of hundred units a glint is well under a pixel, and keeping the
+    // contrast there just aliases into crawling fizz. Fade toward a flat shimmer with
+    // distance instead: the path stays, the sparkle resolves out, which is what the
+    // eye expects looking down a sea toward the horizon.
+    '  g = mix(g, 0.55, clamp(dcam / 260.0, 0.0, 1.0));',
+    // The breakup modulates the path rather than switching it on and off. At 0.35/0.95
+    // the glints carried nearly the whole highlight, so the pattern itself was the thing
+    // you saw; now the path is continuous and the noise textures it.
+    '  col += uMoonCol * path * (0.62 + 0.52 * g);',
     '  col += vec3(0.03, 0.06, 0.11) * fres;',
     '  float fl = exp(-length(vW.xz - uFire) * 0.16);',
     '  col += vec3(1.0, 0.42, 0.14) * fl * 0.16;',
-    '  float d = distance(vW, cameraPosition);',
-    '  float f = 1.0 - exp(-pow(d * uFogD, 2.0));',
+    '  float f = 1.0 - exp(-pow(dcam * uFogD, 2.0));',
     '  gl_FragColor = vec4(mix(col, uFogCol, clamp(f, 0.0, 1.0)), 1.0);',
     '}'
   ].join('\n')
@@ -983,6 +1253,96 @@ const water = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500, LOW ? 96 : 190,
 water.rotation.x = -Math.PI / 2;
 water.position.set(0, -1.15, -330);
 scene.add(water);
+
+// ---------------------------------------------------------------- the island
+//
+// Until this existed the pavilion stood on a flat slab in open water and the palms stood
+// on small floating discs. It went unnoticed for a long time for a simple reason: every
+// framing in the review loop pointed outward from inside the lounge, so nothing in the
+// project ever looked *at* the building. The first exterior capture made it obvious in
+// one frame.
+//
+// The shape is driven by where the building already is, rather than the building being
+// fitted to a landscape. Three regions:
+//
+//   * a platform under the pavilion and terrace, held just below deck level so it never
+//     pokes through the floor and never z-fights with it;
+//   * seaward and to the sides, a beach falling away under the waterline — the transition
+//     is the whole point, because a hard straight shore edge is what made this read as a
+//     platform rather than as land;
+//   * inland, behind the lounge, ground rising into the body of the island. That is the
+//     part the owner's reference is really asking for: somewhere to go.
+function landHeight(x, z){
+  // Distance outside the built footprint, measured as a rounded rectangle so the beach
+  // wraps the corners instead of cutting them square.
+  const dx  = Math.max(0, Math.abs(x) - 13.5);
+  const dzS = Math.max(0, -z - 15.0);          // seaward of the terrace
+  const dzI = Math.max(0,  z -  9.0);          // inland of the lounge
+  const out = Math.sqrt(dx * dx + dzS * dzS);
+
+  // Just under the deck across the footprint, then down the beach into the lagoon.
+  let h = -0.06 - smoothstep(0.0, 16.0, out) * 3.4;
+  // Inland the ground climbs. Gently at first so the back of the lounge stays walkable.
+  const inl = smoothstep(0.0, 34.0, dzI);
+  h += inl * 13.0;
+  // Relief, scaled up inland so the beach stays smooth and the interior does not.
+  h += (fbm2(x * 0.043 + 11.3, z * 0.043 - 4.7) - 0.5) * (1.1 + inl * 6.5);
+  h += (fbm2(x * 0.135 - 2.1,  z * 0.135 + 8.4) - 0.5) * (0.35 + inl * 1.6);
+  return h;
+}
+
+(function(){
+  const R = 110, SEG = LOW ? 110 : 190;
+  const geo = new THREE.PlaneGeometry(R * 2, R * 2, SEG, SEG);
+  const p = geo.attributes.position;
+  const colors = new Float32Array(p.count * 3);
+  // Wet sand at the waterline, dry sand up the beach, then vegetation-dark inland. Doing
+  // this with vertex colour rather than three materials keeps it one draw call and lets
+  // the boundaries be soft, which is what stops a shoreline reading as a drawn line.
+  // Night values. Sand is the trap here: it is genuinely the most reflective thing on an
+  // island, so at daylight albedo it lit up under the moon and became the brightest area
+  // in the frame — brighter than the lounge, which inverts the whole picture again. These
+  // are what sand looks like under a moon, not what it looks like.
+  // These are LINEAR values, not sRGB swatches. r128 predates ColorManagement, so a hex
+  // set on a colour is divided by 255 and used directly as linear — 0x39 is 0.22 linear,
+  // which leaves the framebuffer at about sRGB 0.51. Read as a swatch these look like a
+  // near-black beach; rendered, the previous set was the brightest thing in the picture.
+  const cWet = new THREE.Color(0x100e0b), cSand = new THREE.Color(0x1d1913),
+        cScrub = new THREE.Color(0x0c1009), cDeep = new THREE.Color(0x070a06);
+  const tmp = new THREE.Color();
+  for(let i = 0; i < p.count; i++){
+    // The plane is built in XY and laid flat with rotation.x = -PI/2, which maps local
+    // (x, y, z) to world (x, z, -y). World z is therefore *minus* local y — miss the sign
+    // and the whole island mirrors: the hill grows out to sea, the beach runs inland, and
+    // anything else placed from landHeight() floats in the air over the water.
+    const x = p.getX(i), z = -p.getY(i);
+    const h = landHeight(x, z);
+    p.setZ(i, h);
+    // Jitter the band thresholds. Blending purely on height draws every boundary along a
+    // contour of the terrain, so the beach came out ringed with topographic stripes —
+    // the bands were correct and the *shape* of them was the giveaway. Offsetting the
+    // test height by noise breaks the contour without touching the geometry.
+    const j = (fbm2(x * 0.085 - 3.3, z * 0.085 + 6.1) - 0.5) * 1.7
+            + (fbm2(x * 0.31 + 1.7, z * 0.31 - 2.4) - 0.5) * 0.55;
+    const hb = h + j;
+    const wet  = smoothstep(-2.2, -0.3, hb);    // below the waterline it stays dark and wet
+    const dry  = smoothstep(-0.8,  2.2, hb);
+    const veg  = smoothstep( 0.9,  7.5, hb);
+    const high = smoothstep( 5.5, 14.0, hb);
+    tmp.copy(cWet).lerp(cSand, wet * dry).lerp(cScrub, veg).lerp(cDeep, high);
+    colors[i*3] = tmp.r; colors[i*3+1] = tmp.g; colors[i*3+2] = tmp.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+
+  const land = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.95, metalness: 0.0
+  }));
+  land.rotation.x = -Math.PI / 2;
+  land.position.y = 0;
+  land.receiveShadow = true;
+  scene.add(land);
+})();
 
 // ---------------------------------------------------------------- build helpers
 // Nothing in the real world has a perfectly sharp edge. Every box in this scene had a
@@ -994,17 +1354,61 @@ scene.add(water);
 // triangles. The radius is derived from the smallest dimension so thin panels and slats
 // get a proportionate bevel instead of a broken one, and anything too thin to bevel
 // falls back to a plain box rather than degenerating.
-function roundedBoxGeo(w, h, d){
-  if(!THREE.RoundedBoxGeometry) return new THREE.BoxGeometry(w, h, d);
-  const smallest = Math.min(Math.abs(w), Math.abs(h), Math.abs(d));
-  const r = Math.min(0.022, smallest * 0.24);
-  if(r < 0.0045) return new THREE.BoxGeometry(w, h, d);
-  try { return new THREE.RoundedBoxGeometry(w, h, d, 1, r); }
-  catch(e){ return new THREE.BoxGeometry(w, h, d); }
+// Pass the material and the uvs are box-projected for it (see boxUV below). Every path
+// out of here goes through the same tail, so a plain BoxGeometry fallback is mapped just
+// as correctly as a bevelled one.
+function roundedBoxGeo(w, h, d, mat){
+  let geo = null;
+  if(THREE.RoundedBoxGeometry){
+    const smallest = Math.min(Math.abs(w), Math.abs(h), Math.abs(d));
+    const r = Math.min(0.022, smallest * 0.24);
+    if(r >= 0.0045){
+      try { geo = new THREE.RoundedBoxGeometry(w, h, d, 1, r); }
+      catch(e){ geo = null; }
+    }
+  }
+  if(!geo) geo = new THREE.BoxGeometry(w, h, d);
+  if(mat && mat.userData && mat.userData.tpu) boxUV(geo, mat, mat.userData.tpu);
+  return geo;
+}
+
+// Uniform texel density on boxes.
+//
+// BoxGeometry hands every face uv 0..1 no matter how big that face is, so the 4.8-unit
+// side of a sofa and its 0.9-unit end receive the same number of texture tiles. The
+// rattan weave came out stretched roughly 5:1 along the long faces and read as
+// corduroy — measured against reference/target.png this was the strongest remaining
+// "this is CG" tell in the frame, ahead of anything to do with lighting.
+//
+// Box-projecting the uvs from object space fixes it: one tile covers a fixed distance
+// in world units on every face of every object, so a woven seat and a woven wall panel
+// finally share a weave size.
+//
+// Density is given as tiles per world unit and divided through by the texture's own
+// repeat, which means the shared textures need no change — they are still used
+// unprojected on cylinders, planes and everything else that is not a box.
+function boxUV(geo, mat, tilesPerUnit){
+  const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv;
+  if(!pos || !nor || !uv) return geo;
+  const rep = mat.map && mat.map.repeat ? mat.map.repeat : {x:1, y:1};
+  const sx = tilesPerUnit / (rep.x || 1), sy = tilesPerUnit / (rep.y || 1);
+  for(let i = 0; i < pos.count; i++){
+    const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
+    // Project along whichever axis the face points down, so each face is mapped by the
+    // two object-space coordinates that actually run across it.
+    const ax = Math.abs(nor.getX(i)), ay = Math.abs(nor.getY(i)), az = Math.abs(nor.getZ(i));
+    let u, v;
+    if(ay >= ax && ay >= az){ u = px; v = pz; }   // top / bottom
+    else if(ax >= az){ u = pz; v = py; }          // left / right
+    else { u = px; v = py; }                      // front / back
+    uv.setXY(i, u * sx, v * sy);
+  }
+  uv.needsUpdate = true;
+  return geo;
 }
 
 function box(w, h, d, mat, x, y, z, ry){
-  const m = new THREE.Mesh(roundedBoxGeo(w, h, d), mat);
+  const m = new THREE.Mesh(roundedBoxGeo(w, h, d, mat), mat);
   m.position.set(x, y, z);
   if(ry) m.rotation.y = ry;
   m.castShadow = true; m.receiveShadow = true;
@@ -1231,7 +1635,7 @@ function sofa(x, z, ry){
   const add = function(w, h, d, mat, px, py, pz){
     // bevelled like everything else — cushions and frames are the closest furniture to
     // the camera and the hardest edges to forgive
-    const m = new THREE.Mesh(roundedBoxGeo(w, h, d), mat);
+    const m = new THREE.Mesh(roundedBoxGeo(w, h, d, mat), mat);
     m.position.set(px, py, pz); m.castShadow = true; m.receiveShadow = true;
     g.add(m); return m;
   };
@@ -1565,6 +1969,105 @@ function pot(x, z){
 }
 pot(-8.6, 2.6); pot(8.6, 2.6); pot(-8.6, 7.0); pot(8.9, 5.4);
 
+// Foliage framing the opening.
+//
+// The lounge's whole reason to exist is the view, and the view was arriving as a bare
+// rectangle of sea and sky with nothing at its edges — so the eye ran straight out of
+// frame instead of being held. Every reference still frames that opening with planting,
+// and it works because the leaves fall to near-silhouette against the moonlit water:
+// the darkest values in the picture sit right next to the brightest, which is what
+// gives the opening depth rather than reading as a hole cut in a wall.
+//
+// These are taller than the corner pots on purpose. They have to break the horizon line
+// to do any framing at all; sitting entirely below it just adds clutter to the floor.
+function frondCluster(x, z, h, spread){
+  const potR = 0.34 * Math.max(1, h / 2.4);
+  cyl(potR * 1.18, potR * 0.9, 0.62, 12, M.stone, x, 0.31, z);
+  const blades = 15;
+  for(let i = 0; i < blades; i++){
+    // Two tiers, so the cluster has a dense skirt and a few tall leaves above it rather
+    // than one flat fan — a single ring of planes reads as a shuttlecock.
+    const tall = i % 3 === 0;
+    const len = (tall ? h : h * 0.55) * rnd(0.85, 1.15);
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(len, len * 0.34), M.frond);
+    // The pivot is the blade's centre, so half its length hangs below wherever this is
+    // put. Lifting the tall tier by most of its own reach is what actually gets leaves
+    // above the horizon — the first pass planted them at pot height and they read as
+    // shrubbery on the floor.
+    l.position.set(x, 0.60 + (tall ? len * 0.42 : len * 0.12), z);
+    l.rotation.y = (i / blades) * Math.PI * 2 + rnd(-0.18, 0.18);
+    // Near-vertical in the tall tier, arching out in the skirt.
+    l.rotation.z = tall ? rnd(-1.42, -1.08) : rnd(-0.55, -0.20);
+    l.translateX(len * 0.34 * (spread || 1));
+    l.castShadow = false;
+    scene.add(l);
+  }
+  blocker(x, z, 0.5);
+}
+// The big one is close to the camera and hard left, because framing is a function of how
+// much of the frame edge the thing covers, not of how tall it is in the world — a plant
+// out at the deck edge is simply a small plant. Against the moonlit water these fall to
+// near-silhouette, which is the contrast the opening needs.
+// The hero camera looks right of its own axis, so "hard left in the world" is not the
+// same as "hard left in frame" — the first attempt sat at x=-5 and fell outside the 72°
+// cone entirely. Solved against the framing instead of by eye: this one lands at about
+// 33° off axis, just inside the left edge, roughly seven units out.
+frondCluster(-3.0, -3.2, 2.9, 1.0);
+frondCluster(-4.7, -5.4, 2.6, 1.0);
+frondCluster( 5.4, -6.1, 2.3, 1.0);
+
+// Vegetation across the island body.
+//
+// The land behind the lounge was correct for night — dark — but it was a featureless
+// black wedge occupying a third of the arrival framing, and a silhouette with no incident
+// in it reads as missing geometry rather than as a hillside. Scrub gives it an edge.
+//
+// One InstancedMesh, not a mesh per plant. At the density this needs to read as cover
+// rather than as scattered decoration, the per-object route would be several hundred
+// draw calls for something that is never closer than twenty units.
+(function(){
+  const PLANTS = LOW ? 90 : 260, PER = 5;
+  const geo = new THREE.PlaneGeometry(1, 0.34);
+  const im = new THREE.InstancedMesh(geo, M.frond, PLANTS * PER);
+  im.castShadow = false; im.receiveShadow = false;
+  // Instances are placed once and never move, so three.js can skip the per-frame matrix
+  // upload and the frustum test on a bounding volume that spans the whole island.
+  im.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  im.frustumCulled = false;
+
+  const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(),
+        eu = new THREE.Euler(), sc = new THREE.Vector3(), pv = new THREE.Vector3();
+  let n = 0, tries = 0;
+  while(n < PLANTS * PER && tries < 40000){
+    tries++;
+    const cx = rnd(-92, 92), cz = rnd(-38, 104);
+    // Keep clear of the built footprint, the terrace and the walkable deck.
+    if(Math.abs(cx) < 17 && cz > -18 && cz < 13) continue;
+    const ch = landHeight(cx, cz);
+    // Above the beach so nothing grows in the surf, and off the bare upper slopes.
+    if(ch < 0.6 || ch > 15.5) continue;
+    // Thin the planting out with noise instead of spreading it evenly — real cover comes
+    // in stands with clearings between, and an even scatter reads as a texture.
+    if(fbm2(cx * 0.028 + 4.4, cz * 0.028 - 1.9) < 0.44) continue;
+
+    const scale = rnd(1.5, 3.6);
+    for(let b = 0; b < PER && n < PLANTS * PER; b++, n++){
+      const x = cx + rnd(-0.7, 0.7), z = cz + rnd(-0.7, 0.7);
+      const y = landHeight(x, z);
+      const len = scale * rnd(0.75, 1.2);
+      eu.set(rnd(-1.25, -0.55), (b / PER) * Math.PI * 2 + rnd(-0.3, 0.3), rnd(-0.2, 0.2), 'YXZ');
+      qt.setFromEuler(eu);
+      sc.set(len, len, len);
+      pv.set(x, y + len * 0.30, z);
+      m4.compose(pv, qt, sc);
+      im.setMatrixAt(n, m4);
+    }
+  }
+  im.count = n;
+  im.instanceMatrix.needsUpdate = true;
+  scene.add(im);
+})();
+
 // rocks at the waterline
 for(let i = 0; i < 14; i++){
   const r = new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.4, 1.1), 0), M.stone);
@@ -1732,12 +2235,61 @@ for(let i = 0; i < 14; i++){
 
 // distant island + shore lights
 (function(){
-  const peak = new THREE.Mesh(new THREE.ConeGeometry(46, 78, 5), M.silhouette);
-  peak.position.set(120, 16, -430); scene.add(peak);
-  const peak2 = new THREE.Mesh(new THREE.ConeGeometry(30, 44, 5), M.silhouette);
-  peak2.position.set(178, 6, -450); scene.add(peak2);
-  const ridge = new THREE.Mesh(new THREE.BoxGeometry(420, 14, 40), M.silhouette);
-  ridge.position.set(60, 0, -470); scene.add(ridge);
+  // A five-sided cone has five silhouette edges, and from the lounge you see two of
+  // them — which is exactly why the pitch's "one jagged peak" kept arriving as a flat
+  // triangle. The fix is not more segments on a cone; a smooth cone reads as a tent.
+  // It is ridges: buttresses running down the flanks, easing out at the summit so the
+  // apex stays sharp, and a slightly concave profile near the base the way a real
+  // stratovolcano sits.
+  function volcanoGeo(radius, height, seed){
+    const g = new THREE.ConeGeometry(radius, height, 30, 7, false);
+    const p = g.attributes.position, v = new THREE.Vector3();
+    for(let i = 0; i < p.count; i++){
+      v.fromBufferAttribute(p, i);
+      const r = Math.sqrt(v.x * v.x + v.z * v.z);
+      if(r < 1e-4) continue;                       // leave the apex alone
+      const ang = Math.atan2(v.z, v.x);
+      const up  = (v.y + height / 2) / height;     // 0 at the base, 1 at the apex
+      const ridge = Math.sin(ang * 5.0 + seed) * 0.50
+                  + Math.sin(ang * 9.0 + seed * 2.1) * 0.26
+                  + Math.sin(ang * 17.0 + seed * 0.7) * 0.11;
+      // Concave flanks: pull the waist in, let the base flare. A straight-sided cone is
+      // the single most recognisable "primitive" shape in the frame.
+      const waist = 1.0 - 0.20 * Math.sin(Math.PI * up * 0.85);
+      const k = (1.0 + ridge * 0.17 * Math.sin(Math.PI * Math.min(up, 0.985))) * waist;
+      p.setXYZ(i, v.x * k, v.y, v.z * k);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+
+  // Not the flat unlit silhouette the rest of the far scenery uses. At this size the
+  // peak is a major shape in the frame and it needs the moon to model it — unlit, its
+  // ridges are invisible and all that work goes to waste.
+  const rockMat = new THREE.MeshStandardMaterial({color:0x16293c, roughness:1, metalness:0});
+
+  const peak = new THREE.Mesh(volcanoGeo(46, 78, 0.0), rockMat);
+  peak.position.set(120, 14, -430); peak.rotation.y = 0.6; scene.add(peak);
+  const peak2 = new THREE.Mesh(volcanoGeo(30, 44, 2.3), rockMat);
+  peak2.position.set(178, 5, -450); peak2.rotation.y = -1.1; scene.add(peak2);
+
+  // The far shore was a BoxGeometry, so the bay's horizon had two right-angled corners
+  // in it and read as a wall rather than as land. A curtain with a noisy top edge costs
+  // the same and gives the bay a coastline.
+  const ridgeGeo = new THREE.PlaneGeometry(460, 34, 140, 1);
+  (function(){
+    const p = ridgeGeo.attributes.position;
+    for(let i = 0; i < p.count; i++){
+      if(p.getY(i) <= 0) continue;                 // displace the skyline only
+      const t = p.getX(i) / 460 * 6.283;
+      const h = Math.sin(t * 1.7) * 0.55 + Math.sin(t * 4.3 + 1.7) * 0.27
+              + Math.sin(t * 9.1 + 0.6) * 0.13 + Math.sin(t * 19.0 + 2.2) * 0.05;
+      p.setY(i, p.getY(i) + h * 9.0);
+    }
+    ridgeGeo.computeVertexNormals();
+  })();
+  const ridge = new THREE.Mesh(ridgeGeo, M.silhouette);
+  ridge.position.set(60, -4, -470); scene.add(ridge);
 
   const n = 70, pos = new Float32Array(n * 3), col = new Float32Array(n * 3),
         siz = new Float32Array(n), alp = new Float32Array(n);
@@ -2489,10 +3041,16 @@ function updateFire(dt, time){
     fire.pos[i*3] = d.x; fire.pos[i*3+1] = d.y; fire.pos[i*3+2] = d.z;
     const heat = 1 - k;
     fire.col[i*3]   = 1.0;
-    fire.col[i*3+1] = 0.30 + heat * 0.42;
-    fire.col[i*3+2] = 0.06 + heat * 0.14;
+    fire.col[i*3+1] = 0.26 + heat * 0.36;
+    fire.col[i*3+2] = 0.05 + heat * 0.11;
     fire.siz[i] = d.size * (0.5 + heat * 0.9);
-    fire.alp[i] = Math.pow(heat, 1.4) * 0.85;
+    // These particles are additive and they overlap heavily near the bowl, so alpha is
+    // not opacity here — it is how fast the stack saturates. At 0.85 the core reached
+    // white well before the flame had any shape, which is why the firepit read as a
+    // blown blob and why it alone accounted for most of the frame's clipped pixels.
+    // Lower alpha lets more layers accumulate before clipping, so the flame keeps its
+    // colour and only the very centre goes hot.
+    fire.alp[i] = Math.pow(heat, 1.4) * 0.52;
   }
   fire.geo.attributes.position.needsUpdate = true;
   fire.geo.attributes.aCol.needsUpdate = true;
@@ -3037,7 +3595,7 @@ if(CFG.libraryUrl){
   });
   if(grain) grain.addEventListener('change', function(){
     // grain lives in the grade shader now; the CSS overlay is only the fallback path
-    if(GRADE){ GRADE.uniforms.uGrain.value = grain.checked ? 0.055 : 0.0; return; }
+    if(GRADE){ GRADE.uniforms.uGrain.value = grain.checked ? 0.030 : 0.0; return; }
     const el = document.getElementById('grain');
     if(el) el.style.display = grain.checked ? 'block' : 'none';
   });
@@ -3144,6 +3702,113 @@ setTimeout(function(){
   document.getElementById('loading').style.display = 'none';
   startEl.style.display = 'flex';
 }, 120);
+
+/* ------------------------------------------------------------------ capture mode
+   Development only. Load with a hash to render one fixed framing and push it to
+   the browser's download folder, e.g.
+
+       index.html#shot=hero&t=6&w=1280&h=720
+
+   The frame is POSTed to scripts/serve.ps1, which writes it to renders/. Getting a
+   frame back out is otherwise awkward here: the browser pane is never displayed, so
+   it never composites and the screenshot tool times out on a blank surface, and a
+   canvas -> <a download> click only works once (Chrome permits a single automatic
+   download per origin before it asks a permission question that nothing can answer
+   with no UI on screen). A POST has neither limit.
+
+   One framing per load, driven entirely by the URL, so a capture is a plain reload
+   and every frame starts from an identical boot.
+
+   Two consequences of the pane being hidden, both worked around here:
+     * rAF does not fire, so tick() never advances the world. warm() steps it by hand.
+     * because tick() is not running, the camera can be set directly -- normally it is
+       overwritten from `player` every frame. */
+const CAPTURE = (function(){
+  // Query string first, hash as a fallback. Some of the harnesses that drive this
+  // drop the fragment when they navigate, and a silently ignored #shot= looks
+  // exactly like a capture that ran and produced nothing.
+  const q = new URLSearchParams(location.search || '');
+  if(!q.has('shot') && location.hash) {
+    new URLSearchParams(location.hash.slice(1)).forEach((v, k) => q.set(k, v));
+  }
+  if(!q.has('shot')) return null;
+
+  // Fixed framings. These are the shots the look is reviewed on, and they must not
+  // drift: comparing two lighting passes is meaningless if the camera moved too.
+  // `hero` is the pitch's signature shot and the framing reference/target.png matches.
+  const SHOTS = {
+    hero:    { pos:[-2.9, 1.70,  4.4], at:[ 2.6, 1.35, -4.2], hfov:72 },
+    seaward: { pos:[ 0.0, 1.68,  1.0], at:[ 0.0, 1.55,-20.0], hfov:85 },
+    firepit: { pos:[-1.2, 1.68,  2.2], at:[ 1.4, 0.90, -1.2], hfov:85 },
+    terrace: { pos:[ 0.5, 1.68, -5.5], at:[ 1.0, 1.40,-20.0], hfov:85 },
+    // Exterior. The build has only ever been reviewed from inside, which is exactly how
+    // the pavilion got to be an unlit slab with a flat back — nobody had a framing that
+    // pointed at it. These are the arrival views the pitch's first two prompts describe.
+    arrival: { pos:[ 2.0, 2.40,-25.0], at:[ 0.0, 2.20, -2.0], hfov:78 },
+    island:  { pos:[-30.0, 9.50,-34.0], at:[ 0.0, 1.50,  0.0], hfov:82 },
+    beach:   { pos:[ 17.0, 2.10,-17.0], at:[-2.0, 1.60, -2.0], hfov:85 },
+  };
+  const shot = SHOTS[q.get('shot')];
+  if(!shot) return null;
+
+  const w = +(q.get('w') || 1280), h = +(q.get('h') || 720);
+  const warmTo = +(q.get('t') || 6);
+
+  state = 'capture';                       // keeps tick()'s menu drift off the camera
+  const ui = document.getElementById('start'); if(ui) ui.style.display = 'none';
+  const ld = document.getElementById('loading'); if(ld) ld.style.display = 'none';
+
+  // Pin the pixel ratio so "1280x720" is 1280x720 on any display, and keep the CSS
+  // size in step with the backing store (see the setSize note further up -- letting
+  // those two diverge is what caused the motion sickness bug).
+  renderer.setPixelRatio(1);
+  renderer.setSize(w, h, false);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  camera.aspect = w / h;
+  if(COMPOSER){ COMPOSER.setPixelRatio(1); COMPOSER.setSize(w, h); }
+
+  // Fixed timestep rather than wall clock: fire, water, motes and lanterns are all
+  // time-driven, so a frame is only reproducible if the phase is.
+  const step = 1/30;
+  time = 0;
+  for(let i = 0, n = Math.round(warmTo/step); i < n; i++){
+    time += step;
+    animateWorld(step, time);
+    updateFire(step, time);
+    updateMotes(step, time);
+    updateSpray(step);
+  }
+
+  camera.position.set(shot.pos[0], shot.pos[1], shot.pos[2]);
+  camera.lookAt(shot.at[0], shot.at[1], shot.at[2]);
+  camera.fov = vFov(shot.hfov);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+
+  if(COMPOSER){ if(GRADE) GRADE.uniforms.uTime.value = time; COMPOSER.render(); }
+  else renderer.render(scene, camera);
+
+  // The renderer has no preserveDrawingBuffer, so the colour buffer is only valid in
+  // the same synchronous task as the draw. toBlob is async and would race the clear,
+  // so read back with toDataURL and build the Blob from that.
+  const url = canvas.toDataURL('image/png');
+  const bin = atob(url.slice(url.indexOf(',') + 1));
+  const buf = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  const blob = new Blob([buf], {type:'image/png'});
+
+  // The title is the completion signal: the caller polls it rather than guessing
+  // how long a boot takes. It must only say OK once the bytes are actually on disk,
+  // so it is set from the response, not from the request.
+  const name = q.get('as') || q.get('shot');
+  document.title = 'CAPTURE POSTING ' + blob.size;
+  fetch('/__shot?name=' + encodeURIComponent(name), {method:'POST', body: blob})
+    .then(r => r.text())
+    .then(t => { document.title = 'CAPTURE OK ' + w + 'x' + h + ' ' + t; })
+    .catch(e => { document.title = 'CAPTURE FAIL ' + e.message; });
+
+  return {w, h, bytes: blob.size, t: time};
+})();
 
 </script>
 </body>
