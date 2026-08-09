@@ -864,7 +864,7 @@ const M = {
   // the brightest, most saturated thing in the arrival shot: a glowing cyan bar across
   // the terrace, twenty units out, at night. They are the story's core prop and want to
   // read when you are standing at them, not from the water.
-  copper: new THREE.MeshStandardMaterial({color:0x1e3228, roughness:0.6, metalness:0.55}),
+  copper: new THREE.MeshStandardMaterial({color:0x14231b, roughness:0.6, metalness:0.55}),
   bronze: new THREE.MeshStandardMaterial({color:0x6a4a26, roughness:0.4, metalness:0.72}),
   dark:   new THREE.MeshStandardMaterial({color:0x0b0806, roughness:0.96}),
   vinyl:  new THREE.MeshStandardMaterial({color:0x0a0a0c, roughness:0.32, metalness:0.12}),
@@ -1002,13 +1002,18 @@ const skyMat = new THREE.ShaderMaterial({
     '  float sd = max(dot(normalize(vec3(d.x, 0.0, d.z)), uSunDir), 0.0);',
     '  float band = exp(-max(d.y, 0.0) * 7.0);',
     '  col += uSunset * pow(sd, 3.2) * band * 0.42;',
-    // Halo only — the disc itself is the sprite below. pow(m, 46) is twenty degrees
-    // wide, so as a "disc" it was a formless bright patch with no edge anywhere in it;
-    // the eye read it as haze rather than as the moon, which cost the scene its single
-    // strongest compositional anchor. The tight term now hugs the sprite instead.
+    // Halo only — the disc itself is the sprite below.
+    //
+    // Three layers, because a single term cannot be both a rim and a bloom. Measured off
+    // reference/target.png: the disc there is about 32px on a 1672px frame and its glow
+    // is about 95px — three times the diameter — sitting some forty levels above the
+    // surrounding sky. That ratio is what gives the moon presence. A lone pow(m, 900)
+    // hugging the sprite gave a crisp disc floating on nothing, which reads as small
+    // however large the disc is; a lone pow(m, 12) is twenty degrees of formless haze.
     '  float m = max(dot(d, uMoon), 0.0);',
-    '  col += uGlow * pow(m, 900.0) * 0.30;',
-    '  col += uGlow * pow(m, 12.0) * 0.11;',
+    '  col += uGlow * pow(m, 420.0) * 0.42;',   // rim, hugging the disc
+    '  col += uGlow * pow(m, 60.0)  * 0.20;',   // the halo proper, ~3x the disc
+    '  col += uGlow * pow(m, 8.0)   * 0.06;',   // broad bloom into the sky
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n')
@@ -1040,11 +1045,15 @@ scene.add(new THREE.Mesh(new THREE.SphereGeometry(760, 32, 20), skyMat));
 // moon disc + halo
 (function(){
   const d = MOON_DIR.clone().multiplyScalar(700);
-  // 210 units at radius 700 is a seventeen-degree disc — about thirty-four times the
-  // real moon, and far too large to have a readable edge at any framing. The target
-  // still puts the moon at roughly two and a half degrees, which is generous against
-  // the real half-degree but is what a photograph of this scene looks like.
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(30, 30),
+  // 210 units at radius 700 was a seventeen-degree disc — about thirty-four times life
+  // size, with no readable edge at any framing. 30 units went too far the other way: a
+  // correct-looking 2.4 degrees that reads as a distant pinprick, because most framings
+  // here are wide (85 degrees out on the terrace) and a wide lens shrinks everything.
+  //
+  // 42 units is about 3.4 degrees, roughly 50px across a 1280 frame at the terrace fov.
+  // That is generous against the real half-degree, and it is what the reference does —
+  // the moon in that image is the anchor the whole composition hangs on.
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(42, 42),
     new THREE.MeshBasicMaterial({map:T.moonSprite, transparent:true, depthWrite:false, fog:false,
       blending:THREE.AdditiveBlending}));
   m.position.copy(d);
@@ -1835,13 +1844,54 @@ const valveWheel = new THREE.Group();
 const valveSpin = new THREE.Group();
 const fountainWater = new THREE.Group();
 (function(){
-  // riser and run along the terrace wall
-  cyl(0.09, 0.09, 3.4, 10, M.copper, -8.9, 1.7, -5.0);
-  const run = cyl(0.09, 0.09, 6.4, 10, M.copper, -8.9, 1.15, -7.8);
-  run.rotation.x = Math.PI / 2;
-  const run2 = cyl(0.09, 0.09, 3.6, 10, M.copper, -7.2, 1.15, -10.6);
-  run2.rotation.z = Math.PI / 2;
-  cyl(0.13, 0.13, 0.2, 10, M.copper, -8.9, 1.15, -5.0);
+  // Pipework, run point-to-point with fittings.
+  //
+  // This used to be three bare ten-sided cylinders crossing at right angles. No elbows,
+  // so a corner was simply two sticks passing through each other; no couplings, so a
+  // six-metre run was one extruded tube; and nothing strapping any of it down, so it
+  // floated alongside the terrace. Plumbing is legible because of its joints — the
+  // fittings are where a pipe stops reading as a cylinder — and this is the story's
+  // core prop, so it has to survive being looked at.
+  const UP = new THREE.Vector3(0, 1, 0);
+  const XQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+  function pipeRun(a, b, r){
+    const A = new THREE.Vector3().fromArray(a), B = new THREE.Vector3().fromArray(b);
+    const dir = new THREE.Vector3().subVectors(B, A);
+    const len = dir.length();
+    const q = new THREE.Quaternion().setFromUnitVectors(UP, dir.clone().normalize());
+
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 16), M.copper);
+    tube.position.addVectors(A, B).multiplyScalar(0.5);
+    tube.quaternion.copy(q);
+    tube.castShadow = true; tube.receiveShadow = true;
+    scene.add(tube);
+
+    // A coupling and a strap roughly every metre and a half. The spacing is what gives
+    // the run a sense of length; an unbroken tube has no scale at all.
+    const n = Math.max(1, Math.round(len / 1.5));
+    for(let i = 1; i < n; i++){
+      const p = new THREE.Vector3().lerpVectors(A, B, i / n);
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.5, r * 1.5, r * 1.2, 16), M.copper);
+      collar.position.copy(p); collar.quaternion.copy(q); collar.castShadow = true;
+      scene.add(collar);
+      const strap = new THREE.Mesh(new THREE.TorusGeometry(r * 1.62, r * 0.26, 6, 14), M.dark);
+      strap.position.copy(p);
+      strap.quaternion.copy(q).multiply(XQ);
+      scene.add(strap);
+    }
+    // Elbows. Spheres at the ends read as cast fittings and, more usefully, hide the
+    // seam where two runs meet at ninety degrees.
+    [A, B].forEach(function(p){
+      const el = new THREE.Mesh(new THREE.SphereGeometry(r * 1.55, 14, 10), M.copper);
+      el.position.copy(p); el.castShadow = true;
+      scene.add(el);
+    });
+  }
+
+  const PR = 0.09;
+  pipeRun([-8.9, 0.00, -5.0], [-8.9, 3.40, -5.0], PR);    // riser at the wall
+  pipeRun([-8.9, 1.15, -11.0], [-8.9, 1.15, -4.6], PR);   // run along the terrace
+  pipeRun([-9.0, 1.15, -10.6], [-5.4, 1.15, -10.6], PR);  // spur out to the fountain
 
   // gauge, turned to face anyone standing at the valve
   const gauge = cyl(0.14, 0.14, 0.06, 14, M.brass, -8.94, 2.1, -5.0);
@@ -1901,11 +1951,14 @@ const fountainWater = new THREE.Group();
 })();
 
 // ---------------------------------------------------------------- plants, palms, shoreline
-function palm(x, z, h){
-  cyl(0.16, 0.3, h, 7, M.dark, x, h / 2 - 0.3, z).rotation.z = rnd(-0.12, 0.12);
+// y0 is the ground the trunk stands on, defaulting to the deck's own level so every
+// existing call is unchanged. The island scatter below passes landHeight() instead.
+function palm(x, z, h, y0){
+  const base = (y0 === undefined) ? -0.3 : y0;
+  cyl(0.16, 0.3, h, 7, M.dark, x, base + h / 2, z).rotation.z = rnd(-0.12, 0.12);
   for(let i = 0; i < 7; i++){
     const f = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 0.95), M.frond);
-    f.position.set(x, h - 0.35, z);
+    f.position.set(x, base + h - 0.05, z);
     f.rotation.y = i / 7 * Math.PI * 2 + rnd(-0.2, 0.2);
     f.rotation.z = rnd(-0.55, -0.15);
     f.translateX(1.5);
@@ -2026,7 +2079,7 @@ frondCluster( 5.4, -6.1, 2.3, 1.0);
 // rather than as scattered decoration, the per-object route would be several hundred
 // draw calls for something that is never closer than twenty units.
 (function(){
-  const PLANTS = LOW ? 90 : 260, PER = 5;
+  const PLANTS = LOW ? 140 : 420, PER = 5;
   const geo = new THREE.PlaneGeometry(1, 0.34);
   const im = new THREE.InstancedMesh(geo, M.frond, PLANTS * PER);
   im.castShadow = false; im.receiveShadow = false;
@@ -2066,6 +2119,66 @@ frondCluster( 5.4, -6.1, 2.3, 1.0);
   im.count = n;
   im.instanceMatrix.needsUpdate = true;
   scene.add(im);
+})();
+
+// Palms and boulders on the island body.
+//
+// Undergrowth alone left the hillside barren: it gives the ground a texture but nothing
+// interrupts the ridgeline, and a smooth silhouette at night is indistinguishable from
+// an untextured mass. What reads as jungle from a distance is the *skyline* — trunks and
+// crowns crossing it — so this is really silhouette work rather than planting.
+(function(){
+  // Clear of the pavilion, the terrace and the walkable deck.
+  const clear = function(x, z){ return Math.abs(x) < 20 && z > -20 && z < 16; };
+
+  // Palms. Full meshes rather than instances because there are few of them and each
+  // wants its own trunk lean and crown rotation — a field of identical palms is worse
+  // than none. Clustered on the same noise as the undergrowth so they grow in stands.
+  let placed = 0, tries = 0;
+  const WANT = LOW ? 12 : 30;
+  while(placed < WANT && tries < 6000){
+    tries++;
+    const x = rnd(-86, 86), z = rnd(-28, 94);
+    if(clear(x, z)) continue;
+    const y = landHeight(x, z);
+    if(y < 0.8 || y > 13.0) continue;
+    if(fbm2(x * 0.030 + 7.7, z * 0.030 + 2.2) < 0.44) continue;
+    palm(x, z, rnd(5.0, 9.5), y);
+    placed++;
+  }
+
+  // Boulders. One InstancedMesh — they are pure silhouette at this distance and none of
+  // them needs to differ except in size and rotation, which the matrix carries.
+  const ROCKS = LOW ? 40 : 120;
+  const rock = new THREE.MeshStandardMaterial({color:0x14180f, roughness:1, metalness:0, flatShading:true});
+  const rim = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rock, ROCKS);
+  rim.castShadow = false; rim.receiveShadow = false;
+  rim.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  rim.frustumCulled = false;
+  const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(),
+        eu = new THREE.Euler(), sc = new THREE.Vector3(), pv = new THREE.Vector3();
+  let r = 0; tries = 0;
+  while(r < ROCKS && tries < 9000){
+    tries++;
+    const x = rnd(-92, 92), z = rnd(-34, 100);
+    if(clear(x, z)) continue;
+    // Down to the waterline this time — rocks belong in the surf as well as up the slope,
+    // and the shoreline is where they do most for the silhouette.
+    const y = landHeight(x, z);
+    if(y < -1.8 || y > 14.0) continue;
+    const s = rnd(0.5, 2.6) * (y < 0.6 ? 1.4 : 1.0);   // bigger ones down at the water
+    eu.set(rnd(0, 3), rnd(0, 3), rnd(0, 3));
+    qt.setFromEuler(eu);
+    sc.set(s * rnd(0.8, 1.3), s * rnd(0.5, 0.9), s * rnd(0.8, 1.3));
+    // Sink each one so it sits in the ground rather than resting on it like a dropped prop.
+    pv.set(x, y + s * 0.22, z);
+    m4.compose(pv, qt, sc);
+    rim.setMatrixAt(r, m4);
+    r++;
+  }
+  rim.count = r;
+  rim.instanceMatrix.needsUpdate = true;
+  scene.add(rim);
 })();
 
 // rocks at the waterline
@@ -3661,7 +3774,10 @@ checkOrientation();
     // Per-material reflectivity. Uniform IBL flattens everything, so the metals get
     // to shine and the matte surfaces (thatch, rattan, fabric) stay matte.
     const gloss = {
-      brass: 1.55, bronze: 1.30, copper: 1.15, vinyl: 1.25, glass: 1.5,
+      // copper is dropped well below the other metals: it is a long run of pipe in the
+      // open, and at 1.15 the environment reflection alone made it the palest thing in
+      // the arrival shot regardless of how far its base colour came down.
+      brass: 1.55, bronze: 1.30, copper: 0.50, vinyl: 1.25, glass: 1.5,
       bottle: 1.2, liquid: 1.1, wet: 0.95, stream: 1.2,
       floor: 0.62, panel: 0.30, pillar: 0.38, beam: 0.22,
       rattan: 0.18, fabric: 0.20, stone: 0.24, mat: 0.14,
