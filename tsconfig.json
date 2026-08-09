@@ -38,6 +38,11 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "**/node_modules",
+    "tiki-lounge",
+    "lounge-party",
+    "gone-away"
   ]
 }

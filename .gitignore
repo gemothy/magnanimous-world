@@ -61,3 +61,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 yarn-error.log*
+
+# ---- gone-away render output ----
+# Frames written by the capture block in gone-away/index.html, via scripts/serve.ps1.
+# These are working output for the art-direction review loop -- a couple of megabytes
+# each and regenerated constantly -- not deliverables. reference/ is kept; renders/ is not.
+/gone-away/renders/
