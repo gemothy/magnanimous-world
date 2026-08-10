@@ -153,9 +153,16 @@ what stops it reading as a uniform dome.
 **The trap to avoid:** raising the ambient without raising the practicals. When the sky started
 carrying real light, the interior immediately went cold and flat, because the lanterns and fire
 had been balanced against a black scene. Warm-against-cool *is* the look, so the practicals had
-to climb with it — lanterns roughly tripled (0.6 → 1.65), the record lamp to 3.3, the firepit
-from 2.5 to 4.4. At blue hour the inside of the pavilion should read amber and occupied,
-brighter than the water beyond it.
+to climb with it — lanterns roughly tripled (0.6 → 1.65) and the record lamp reached 3.3. The
+fire is now deliberately local: a fixed 3.70 shadow key with roughly ±5% irregular flutter, a
+0.64 shadowless hearth fill and a nearly static 0.42 roof bounce. At blue hour the inside of the
+pavilion should read amber and occupied, brighter than the water beyond it.
+
+**Never animate `fireLight.position`.** The old ±5–7 cm three-axis motion moved every shadow in
+the room and read as a light fixture swinging above the fire. Keep the shadow caster planted at
+`FIRE_POS`; only its narrow intensity envelope and the visible flame particles should move. The
+low table practical is intentionally steady so the drink, flower, linen and cane give the eye a
+calm warm place to rest.
 
 ## The rest of the resort
 
@@ -600,5 +607,6 @@ moment it takes on an asset pipeline it stops being editable from a terminal.
 `CFG` at the top: walk speed, head bob (off — it is *not* the sickness cause, but it does not
 help), look sensitivity, FOV walking vs seated, fog, reach, eye height, `libraryUrl`.
 
-The look lives in the balance between `fireLight.intensity` (warm, inside) and
-`moonLight.intensity` (cool, outside). Change those two before anything else.
+The look lives in the balance between the fixed fire key plus its short-range hearth fill
+(warm, inside) and `moonLight.intensity` (cool, outside). Change that local/cool balance before
+raising global ambient light.

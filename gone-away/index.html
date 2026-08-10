@@ -1058,7 +1058,7 @@ const M = {
   // point light sitting inside it; the glow is seen through the weave, not painted on it.
   cane:   new THREE.MeshBasicMaterial({color:0x5a321d}),
   // heavy linen keeps a faint sheen; fully matte fabric reads as felt
-  fabric: new THREE.MeshStandardMaterial({map:T.fabric, color:0x574e40, roughness:0.80, bumpMap:T.fabric, bumpScale:0.008}),
+  fabric: new THREE.MeshStandardMaterial({map:T.fabric, color:0x635a4d, roughness:0.77, bumpMap:T.fabric, bumpScale:0.008}),
   // A restrained tobacco-gold accent for the loose cushions. The room is immaculate
   // 1965 luxury, not a monochrome set: one warmer textile in each seating group makes
   // the sofas feel composed without lifting the large upholstery surfaces above the fire.
@@ -1200,21 +1200,29 @@ if(!LOW){
   moonLight.shadow.normalBias = 0.03;
 }
 
-const fireLight = new THREE.PointLight(0xff7a2a, 3.0, 26, 2);
+// The fire key stays physically planted in the bowl. A moving shadow caster reads as a
+// swinging fixture, not a flame; animation belongs in its intensity and particles.
+const fireLight = new THREE.PointLight(0xffa05f, 3.70, 17, 2);
 fireLight.position.copy(FIRE_POS);
 scene.add(fireLight);
 if(!LOW){
   fireLight.castShadow = true;
   fireLight.shadow.mapSize.set(512, 512);
   fireLight.shadow.camera.near = 0.3;
-  fireLight.shadow.camera.far = 26;
+  fireLight.shadow.camera.far = 17;
   fireLight.shadow.bias = -0.006;
 }
+
+// A quiet shadowless hearth fill catches the nearest linen, cane and tabletop. Keeping
+// it short-range makes the seating feel occupied without tinting the whole pavilion.
+const fireHearthFill = new THREE.PointLight(0xffc08a, 0.64, 8.5, 2);
+fireHearthFill.position.set(FIRE_POS.x, 0.82, FIRE_POS.z + 0.18);
+scene.add(fireHearthFill);
 
 // A restrained upward bounce lets the fire belong to the architecture, not just the
 // floor. It is deliberately shadowless and short-range: enough amber to reveal the
 // woven roof and round rafters above the hearth without flattening the blue-hour room.
-const roofFireBounce = new THREE.SpotLight(0xff8c46, 0.50, 9, Math.PI * 0.38, 0.72, 1.7);
+const roofFireBounce = new THREE.SpotLight(0xffa56c, 0.42, 8, Math.PI * 0.38, 0.72, 1.7);
 roofFireBounce.position.set(0, 2.15, -1.95);
 roofFireBounce.target.position.set(0, 6.45, -1.65);
 scene.add(roofFireBounce, roofFireBounce.target);
@@ -2116,7 +2124,8 @@ sofa( 0.0,  2.4,  0);
   cyl(0.17, 0.17, 0.05, 12, M.bronze, 0.02, 0.62, 0.78);
   cyl(0.15, 0.19, 0.34, 10, M.rattan, 0.02, 0.82, 0.78);
   cyl(0.085, 0.12, 0.25, 8, M.lampGlow, 0.02, 0.82, 0.78).castShadow = false;
-  lanternLight(0.02, 0.88, 0.78, 0.42, 3.8);
+  const tableLight = lanternLight(0.02, 0.88, 0.78, 0.62, 4.4);
+  tableLight.userData.steady = true;
   // orchid
   const bowl = cyl(0.19, 0.14, 0.14, 10, M.stone, 0.62, 0.66, 0.72);
   for(let i = 0; i < 5; i++){
@@ -4005,25 +4014,20 @@ let time = 0;
 // not a separate rig, so firelight, lantern breathing, the sea and the platter all keep
 // running exactly as they do in play.
 function animateWorld(dt, time){
-  // Firelight flicker: four detuned curves. Frame-rate white noise made the room shimmer
-  // like a faulty exposure; nested sines keep the irregularity but let the amber pool breathe.
-  // Raised with the lanterns for blue hour — the firepit is the warmest thing in the
-  // room and has to stay that way now the sky is carrying light.
-  fireLight.intensity = 4.15
-    + Math.sin(time * 11.3) * 0.42
-    + Math.sin(time * 17.1) * 0.26
-    + Math.sin(time * 3.1) * 0.32
-    + 0.17 + Math.sin(time * 29.1 + Math.sin(time * 1.7) * 0.8) * 0.12;
-  fireLight.position.set(
-    FIRE_POS.x + Math.sin(time * 5.1) * 0.07,
-    FIRE_POS.y + Math.sin(time * 7.7) * 0.05,
-    FIRE_POS.z + Math.cos(time * 4.3) * 0.07);
-  roofFireBounce.intensity = 0.50
-    + Math.sin(time * 3.1) * 0.025
-    + Math.sin(time * 11.3) * 0.018;
+  // Firelight is a steady pool with a small irregular flutter. The slow nested phase
+  // avoids an obvious loop; the fixed position keeps furniture and roof shadows still.
+  const fireFlicker =
+      Math.sin(time * 8.3 + Math.sin(time * 1.1) * 1.2) * 0.10
+    + Math.sin(time * 13.7 + 0.8) * 0.06
+    + Math.sin(time * 2.0 + 1.3) * 0.035;
+  fireLight.position.copy(FIRE_POS);
+  fireLight.intensity = 3.70 + fireFlicker;
+  fireHearthFill.intensity = 0.64 + fireFlicker * 0.10;
+  roofFireBounce.intensity = 0.42 + fireFlicker * 0.025;
 
   for(let i = 0; i < LANTERN_LIGHTS.length; i++){
     const l = LANTERN_LIGHTS[i], p = l.userData.phase;
+    if(l.userData.steady){ l.intensity = l.userData.base; continue; }
     // two slow detuned sines per lamp: oil light that breathes rather than pulses
     l.intensity = l.userData.base *
       (1 + Math.sin(time * 2.3 + p) * 0.055 + Math.sin(time * 1.7 + p * 1.6) * 0.035);
