@@ -53,6 +53,48 @@
   #note .meta{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
     color:rgba(232,196,138,.85);margin-top:6px;line-height:1.55}
 
+  /* The plumber's work folio is a quiet progress instrument, not a quest HUD. It stays
+     folded to one small tab until invited open, then records observations without
+     solving them for the player. DOM keeps the text sharp and touch-sized on phones. */
+  #lineFolio{position:fixed;right:max(20px,env(safe-area-inset-right));top:max(20px,env(safe-area-inset-top));
+    z-index:9;width:min(310px,calc(100vw - 40px));opacity:0;visibility:hidden;pointer-events:none;
+    transform:translateY(-7px);transition:opacity .45s ease,transform .55s var(--ease-out),visibility 0s .55s}
+  #lineFolio.on{opacity:1;visibility:visible;transform:translateY(0);transition:opacity .45s ease,
+    transform .55s var(--ease-out),visibility 0s}
+  #folioToggle{width:100%;min-height:52px;padding:10px 12px;display:grid;
+    grid-template-columns:1fr auto;grid-template-areas:"kicker count" "title count";
+    align-items:center;text-align:left;pointer-events:auto;cursor:pointer;
+    border:1px solid rgba(232,196,138,.28);background:rgba(11,11,10,.82);
+    color:var(--bone);box-shadow:0 13px 42px rgba(0,0,0,.28);backdrop-filter:blur(9px);
+    touch-action:manipulation}
+  #folioToggle:hover,#folioToggle:focus-visible{border-color:rgba(232,196,138,.68);outline:none}
+  .folio-kicker{grid-area:kicker;font:8px var(--mono);letter-spacing:.3em;text-transform:uppercase;
+    color:rgba(232,196,138,.64)}
+  #folioToggle strong{grid-area:title;margin-top:3px;font-family:var(--display);font-size:16px;
+    font-weight:400;letter-spacing:.075em;color:#f4e6cf}
+  #folioCount{grid-area:count;font:9px var(--mono);letter-spacing:.13em;color:rgba(232,196,138,.78)}
+  #folioPanel{max-height:0;overflow:hidden;pointer-events:none;opacity:0;
+    border:1px solid rgba(232,196,138,.18);border-top:0;background:rgba(9,9,8,.93);
+    transition:max-height .55s var(--ease-out),opacity .32s ease}
+  #lineFolio.open #folioPanel{max-height:380px;pointer-events:auto;opacity:1;touch-action:pan-y}
+  .folio-inner{padding:17px 16px 16px}
+  #folioSteps{list-style:none;display:grid;gap:11px}
+  #folioSteps li{display:grid;grid-template-columns:23px 1fr;gap:10px;align-items:start;
+    font:9px/1.5 var(--mono);letter-spacing:.15em;text-transform:uppercase;
+    color:rgba(242,230,208,.42);transition:color .3s ease}
+  #folioSteps li::before{content:attr(data-n);width:22px;height:22px;display:grid;place-items:center;
+    border:1px solid rgba(232,196,138,.22);border-radius:50%;font-size:8px;letter-spacing:0;
+    color:rgba(232,196,138,.48)}
+  #folioSteps li.current{color:rgba(244,230,205,.9)}
+  #folioSteps li.current::before{border-color:rgba(232,196,138,.72);color:var(--gold-bright);
+    box-shadow:0 0 14px rgba(232,196,138,.10)}
+  #folioSteps li.done{color:rgba(232,196,138,.58)}
+  #folioSteps li.done::before{content:"\2713";border-color:rgba(232,196,138,.42);color:var(--gold)}
+  #folioObservation{margin-top:15px;padding-top:13px;border-top:1px solid rgba(232,196,138,.13);
+    font:10px/1.7 var(--mono);letter-spacing:.08em;color:rgba(242,230,208,.62);white-space:pre-line}
+  .play-hud-off #lineFolio,.photo-open #lineFolio{opacity:0!important;pointer-events:none!important}
+  .play-hud-off #lineFolio *,.photo-open #lineFolio *{pointer-events:none!important}
+
   /* One photograph at a time, selected by its physical frame. This is deliberately not
      a carousel: returning to the room and finding another image is the interaction. */
   #photoInspect{position:fixed;inset:0;z-index:46;display:flex;align-items:center;justify-content:center;
@@ -237,7 +279,7 @@
   @keyframes loadTravel{0%{transform:translateX(-100%)}55%,100%{transform:translateX(100%)}}
 
   /* ---------------- authored teaser video ---------------- */
-  /* Preserve the owner's finished 14.5-second teaser in its 16:9 composition
+  /* Preserve the finished 25.6-second teaser in its 16:9 composition
      in every viewport; black belongs around the image when the display is wider/taller,
      never a crop through the island, cocktail, or end title. */
   #teaserFilm{position:fixed;inset:0;z-index:40;display:grid;place-items:center;
@@ -278,6 +320,11 @@
     #photoMeta{margin-top:12px;font-size:9px;line-height:1.65}
     #photoKicker{margin-bottom:11px;font-size:8px}
     #photoClose{right:9px;top:5px;min-height:46px}
+    #lineFolio{top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));
+      width:min(330px,calc(100vw - 20px))}
+    #folioToggle{min-height:50px;padding:9px 11px}
+    #lineFolio.open #folioPanel{max-height:min(54vh,380px);overflow:auto;overscroll-behavior:contain}
+    .folio-inner{padding:14px 13px}
   }
   @media (max-height:500px) and (min-width:641px){
     #photoInspect{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}
@@ -291,7 +338,7 @@
   @media (prefers-reduced-motion:reduce){
     #start .title,#start .rule,#start .sub,#start .acts,#start #prefsToggle,
     #start .rule::after,.load-orbit,.load-diamond,.load-line::after{animation:none!important}
-    .screen,#loading,.enter,#prefs{transition-duration:.01ms!important}
+    .screen,#loading,.enter,#prefs,#lineFolio,#folioPanel{transition-duration:.01ms!important}
   }
 </style>
 </head>
@@ -302,6 +349,24 @@
 <div id="reticle" aria-hidden="true"></div>
 <div id="prompt"></div>
 <div id="note" role="status" aria-live="polite"></div>
+<aside id="lineFolio" aria-label="Line three work folio" aria-hidden="true" inert>
+  <button id="folioToggle" type="button" aria-controls="folioPanel" aria-expanded="false" tabindex="-1">
+    <span class="folio-kicker">Work folio</span>
+    <strong>Line Three</strong>
+    <span id="folioCount">0 / 4</span>
+  </button>
+  <section id="folioPanel" aria-label="Line three progress" aria-hidden="true">
+    <div class="folio-inner">
+      <ol id="folioSteps">
+        <li data-step="inspect" data-n="01">Inspect the gauge and feed</li>
+        <li data-step="isolate" data-n="02">Isolate the branch</li>
+        <li data-step="restore" data-n="03">Set working pressure</li>
+        <li data-step="door" data-n="04">Check the manager's door</li>
+      </ol>
+      <p id="folioObservation">Find the service gauge and pipe run on the west side of the terrace.</p>
+    </div>
+  </section>
+</aside>
 <div id="photoInspect" role="dialog" aria-modal="true" aria-labelledby="photoTitle" aria-hidden="true">
   <div class="photo-inspect-shell">
     <button id="photoClose" type="button">Return to lounge</button>
@@ -359,7 +424,7 @@
 
 <div id="teaserFilm" role="dialog" aria-modal="true" aria-label="Gone Away teaser" aria-hidden="true">
   <video id="teaserVideo" preload="auto" playsinline disablepictureinpicture aria-label="Gone Away teaser video">
-    <source src="./media/gone-away-teaser-v3.mp4" type="video/mp4">
+    <source src="./media/gone-away-teaser-v4.mp4?v=20260810-final4" type="video/mp4">
   </video>
   <button id="teaserClose" type="button" aria-label="Return to the resort">Return</button>
   <div id="teaserLoad" role="status">Preparing the teaser</div>
@@ -1763,9 +1828,15 @@ const terrace = box(23, 0.3, 7.4, M.wet, 0, -0.30, -10.6);
 terrace.castShadow = false;
 box(19.4, 0.16, 0.5, M.stone, 0, -0.07, -6.95).castShadow = false;
 
-// back wall + side walls
-box(19.4, 5.8, 0.4, M.panel, 0, 2.9, 8.4);
-box(19.4, 1.1, 0.52, M.stone, 0, 0.55, 8.34);
+// back wall + side walls. The manager's bay is a real aperture rather than a door
+// pasted onto one solid wall slab: left/right fields plus a header leave the opening
+// clear through both timber and stone. This matters once the leaf gives an inch — a
+// fake frame over a solid wall can never reveal anything behind it.
+box(11.2, 5.8, 0.4, M.panel, -4.1, 2.9, 8.4);
+box( 6.4, 5.8, 0.4, M.panel,  6.5, 2.9, 8.4);
+box( 1.8, 2.55,0.4, M.panel,  2.4, 4.525, 8.4);
+box(11.2, 1.1, 0.52, M.stone, -4.1, 0.55, 8.34);
+box( 6.4, 1.1, 0.52, M.stone,  6.5, 0.55, 8.34);
 box(0.4, 5.8, 7.6, M.panel, -9.5, 2.9, 4.6);
 box(0.4, 5.8, 7.6, M.panel,  9.5, 2.9, 4.6);
 box(0.5, 1.2, 7.6, M.stone, -9.44, 0.6, 4.6);
@@ -2442,28 +2513,68 @@ function archivePhotoTexture(variant){
 })();
 
 // ---------------------------------------------------------------- locked door
+const managerDoorRoot = new THREE.Group();
+const managerDoorLeaf = new THREE.Group();
+const managerOfficeReveal = new THREE.Group();
 (function(){
-  const d = new THREE.Group();
+  const d = managerDoorRoot;
+  // Hinge the leaf from its right jamb. The old door was assembled in world space,
+  // which made even a one-inch reveal impossible without sliding every panel apart.
+  managerDoorLeaf.position.set(3.15, 0, 8.12);
   const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3.0, 0.12), M.panel);
-  leaf.position.set(2.4, 1.5, 8.12); leaf.castShadow = true; leaf.receiveShadow = true;
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3.25, 0.16), M.beam);
-  frame.position.set(2.4, 1.55, 8.2);
+  leaf.position.set(-0.75, 1.5, 0); leaf.castShadow = true; leaf.receiveShadow = true;
+  // Real jambs and head, not a solid frame-shaped slab behind the leaf. Together with
+  // the split wall bay above, these leave an actual line of sight into the office.
+  const leftJamb = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3.18, 0.16), M.beam);
+  leftJamb.position.set(1.575, 1.59, 8.2);
+  const rightJamb = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3.18, 0.16), M.beam);
+  rightJamb.position.set(3.225, 1.59, 8.2);
+  const frameHead = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.18, 0.16), M.beam);
+  frameHead.position.set(2.4, 3.09, 8.2);
+  const threshold = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.07, 0.20), M.beam);
+  threshold.position.set(2.4, 0.035, 8.18);
   const handle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), M.brass);
-  handle.position.set(1.9, 1.45, 8.04);
+  handle.position.set(-1.25, 1.45, -0.08);
   // Shallow carved panels and a proper brass escutcheon make this the manager's door,
   // not a blank primitive. The warm hairline beneath it promises an occupied interior
   // without opening the lounge-only slice into another room.
   const upperPanel = new THREE.Mesh(roundedBoxGeo(1.05, 0.96, 0.035, M.carvedTeak), M.carvedTeak);
-  upperPanel.position.set(2.4, 2.16, 8.045);
+  upperPanel.position.set(-0.75, 2.16, -0.075);
   const lowerPanel = new THREE.Mesh(roundedBoxGeo(1.05, 0.88, 0.035, M.carvedTeak), M.carvedTeak);
-  lowerPanel.position.set(2.4, 0.84, 8.045);
+  lowerPanel.position.set(-0.75, 0.84, -0.075);
   const escutcheon = new THREE.Mesh(roundedBoxGeo(0.13, 0.30, 0.035, M.brass), M.brass);
-  escutcheon.position.set(1.9, 1.45, 7.985);
+  escutcheon.position.set(-1.25, 1.45, -0.135);
   const seamMat = new THREE.MeshBasicMaterial({color:0x8e471f, transparent:true, opacity:0.38});
   const seam = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.026, 0.025), seamMat);
   seam.position.set(2.4, 0.055, 8.01);
-  d.add(frame, leaf, upperPanel, lowerPanel, escutcheon, handle, seam);
+  managerDoorLeaf.add(leaf, upperPanel, lowerPanel, escutcheon, handle);
+  d.add(leftJamb, rightJamb, frameHead, threshold, managerDoorLeaf, seam);
   scene.add(d);
+
+  // Only a sliver of the office exists in this lounge slice: warm depth, the edge of a
+  // desk and one unmistakable satellite handset. It stays completely hidden until the
+  // repair is complete, and deliberately reveals no documents, suspect clues or answers.
+  const officeDark = new THREE.MeshBasicMaterial({color:0x382315});
+  const officeBack = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 2.78), officeDark);
+  officeBack.position.set(2.36, 1.48, 8.88);
+  officeBack.rotation.y = Math.PI;
+  const desk = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.07, 0.38), M.floor);
+  desk.position.set(1.82, 1.03, 8.70);
+  // Keep the handset close to the left jamb: that is the side exposed by this
+  // right-hinged inward swing. A polished dark body against the warm office plane and
+  // the tall brass aerial make the object legible through a deliberately narrow gap.
+  const phone = new THREE.Mesh(roundedBoxGeo(0.18, 0.075, 0.27, M.vinyl), M.vinyl);
+  phone.position.set(1.69, 1.10, 8.66);
+  phone.rotation.y = -0.08;
+  const handset = new THREE.Mesh(roundedBoxGeo(0.19, 0.055, 0.29, M.vinyl), M.vinyl);
+  handset.position.set(1.69, 1.16, 8.65);
+  handset.rotation.y = -0.08;
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.18, 6), M.brass);
+  antenna.position.set(1.665, 1.27, 8.64);
+  antenna.rotation.z = -0.12;
+  managerOfficeReveal.add(officeBack, desk, phone, handset, antenna);
+  managerOfficeReveal.visible = false;
+  scene.add(managerOfficeReveal);
 
   // A brass sconce beside the door. Without it this whole corner fell to near-black and
   // the door read as a hole in the wall — bad for the one object that is openly telling
@@ -2481,16 +2592,8 @@ function archivePhotoTexture(variant){
   scene.add(sconce);
   lanternLight(3.66, 2.02, 7.86, 0.80, 4.8);
 
-  interactive(d, 'Try the door', function(){
-    if(LORE.photos && LORE.record && LORE.valve){
-      note('The repaired line continues through the wall.', 'beyond it: the manager\'s office · the island\'s only satellite phone');
-    } else if(LORE.valve){
-      note('The repaired line continues through the wall.', 'the lock does not move');
-    } else {
-      note('Locked. The manager keeps the key.');
-    }
-    Sound.doorRattle();
-  });
+  interactive(d, 'Try the door', function(){ tryManagerDoor(); });
+  d.userData.isManagerDoor = true;
 })();
 
 // ---------------------------------------------------------------- valve, pipes, fountain
@@ -2498,6 +2601,9 @@ let valveOpen = false;
 const valveWheel = new THREE.Group();
 const valveSpin = new THREE.Group();
 const gaugeNeedle = new THREE.Group();
+const lineGaugeTarget = new THREE.Group();
+const lineIsolator = new THREE.Group();
+const isolatorTurn = new THREE.Group();
 const fountainWater = new THREE.Group();
 (function(){
   // Pipework, run point-to-point with fittings.
@@ -2578,6 +2684,41 @@ const fountainWater = new THREE.Group();
   dial.add(gaugeNeedle);
   scene.add(dial);
 
+  // The dial is physically small, so give inspection a generous independent target.
+  // It is separate from the wheel: reading the system before touching it is the first
+  // piece of plumbing, not a caption attached to the same click.
+  lineGaugeTarget.position.set(-8.74, 2.10, -5.0);
+  const gaugeGrab = new THREE.Mesh(
+    new THREE.BoxGeometry(0.54, 0.58, 0.72),
+    new THREE.MeshBasicMaterial({visible:false})
+  );
+  lineGaugeTarget.add(gaugeGrab);
+  scene.add(lineGaugeTarget);
+  interactive(lineGaugeTarget, 'Inspect the gauge and feed', function(){ inspectLineGauge(); });
+  lineGaugeTarget.userData.isLineGauge = true;
+
+  // A quarter-turn service cock isolates the branch before the main wheel is moved.
+  // It sits one coupling down the terrace so gauge, isolator and wheel remain three
+  // distinct, comfortably tappable stations even on a phone.
+  lineIsolator.position.set(-8.78, 1.15, -6.25);
+  lineIsolator.rotation.y = -Math.PI / 2;
+  const isoBody = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.16, 12), M.bronze);
+  isoBody.rotation.x = Math.PI / 2;
+  const isoHub = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.18, 10), M.brass);
+  isoHub.rotation.x = Math.PI / 2;
+  const isoLever = new THREE.Mesh(roundedBoxGeo(0.36, 0.055, 0.055, M.brass), M.brass);
+  isoLever.position.x = 0.12;
+  isolatorTurn.add(isoLever);
+  lineIsolator.add(isoBody, isoHub, isolatorTurn);
+  const isoGrab = new THREE.Mesh(
+    new THREE.BoxGeometry(0.58, 0.64, 0.78),
+    new THREE.MeshBasicMaterial({visible:false})
+  );
+  lineIsolator.add(isoGrab);
+  scene.add(lineIsolator);
+  interactive(lineIsolator, 'Isolate line three', function(){ isolateLineThree(); });
+  lineIsolator.userData.isLineIsolator = true;
+
   // the wheel itself — mounted on the riser, facing into the room
   valveWheel.position.set(-8.78, 1.15, -5.0);
   valveWheel.rotation.y = -Math.PI / 2;
@@ -2598,11 +2739,11 @@ const fountainWater = new THREE.Group();
   // it only targeted within about a 6-degree pitch window — far too fussy for the
   // object the whole story turns on. Invisible material, so it never draws.
   const vgrab = new THREE.Mesh(
-    new THREE.BoxGeometry(0.55, 1.0, 1.0),
+    new THREE.BoxGeometry(0.58, 0.78, 0.88),
     new THREE.MeshBasicMaterial({visible: false})
   );
   valveWheel.add(vgrab);
-  interactive(valveWheel, 'Open the valve', function(){ toggleValve(); });
+  interactive(valveWheel, 'Adjust the main wheel', function(){ adjustLineThree(); });
   valveWheel.userData.isValve = true;
 
   // stone fountain out on the terrace
@@ -3619,14 +3760,350 @@ function nextRecord(){
   Sound.needle(true);
   announceRecord();
 }
-function toggleValve(){
-  valveOpen = !valveOpen;
-  if(valveOpen) LORE.valve = true;
-  Sound.valve(valveOpen);
-  fountainWater.visible = valveOpen;
-  note(valveOpen ? 'Line three is live.' : 'Line three is shut.',
-    valveOpen ? 'pressure climbs toward the locked office' : 'pressure falling');
-}
+
+// ---------------------------------------------------------------- line three work order
+// A small, forgiving repair vignette. Nothing can be set incorrectly or made worse:
+// touching a step out of order produces a useful observation, and a completed line can
+// only be checked, never accidentally shut again. The folio records work, not deductions.
+const LineThree = (function(){
+  const progress = {
+    introduced:false, inspected:false, isolated:false, valveStep:0,
+    restored:false, doorRevealed:false, archiveSeen:false
+  };
+  const folio = document.getElementById('lineFolio');
+  const toggle = document.getElementById('folioToggle');
+  const panel = document.getElementById('folioPanel');
+  const count = document.getElementById('folioCount');
+  const observation = document.getElementById('folioObservation');
+  const stepEls = Array.from(document.querySelectorAll('#folioSteps [data-step]'));
+  let latest = 'Find the service gauge and pipe run on the west side of the terrace.';
+  let peekTimer = null;
+  let hudActive = false;
+  let openMode = null;        // null | 'peek' | 'manual'
+  let resumeMode = null;      // only an explicit manual-open survives a HUD suspension
+
+  function completed(){
+    return (progress.inspected ? 1 : 0) + (progress.isolated ? 1 : 0) +
+      (progress.restored ? 1 : 0) + (progress.doorRevealed ? 1 : 0);
+  }
+  function applyOpen(open){
+    if(!folio) return;
+    folio.classList.toggle('open', !!open);
+    if(toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(panel) panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+  function cancelPeek(){
+    if(peekTimer){ clearTimeout(peekTimer); peekTimer = null; }
+  }
+  function setAvailable(available){
+    if(!folio) return;
+    folio.setAttribute('aria-hidden', available ? 'false' : 'true');
+    // Use the property where the browser implements inert, and keep the attribute in
+    // sync as a declarative fallback. tabindex prevents a hidden toggle from remaining
+    // in sequential focus order in older engines.
+    if('inert' in folio) folio.inert = !available;
+    if(available) folio.removeAttribute('inert');
+    else folio.setAttribute('inert', '');
+    if(toggle) toggle.tabIndex = available ? 0 : -1;
+  }
+  function showAvailable(){
+    if(!folio || !hudActive || !progress.introduced) return;
+    folio.classList.add('on');
+    setAvailable(true);
+  }
+  function removeFolioFocus(){
+    if(!folio) return;
+    const active = document.activeElement;
+    if(active && folio.contains(active)){
+      if(active.blur) active.blur();
+      if(canvas && canvas.focus) canvas.focus({preventScroll:true});
+    }
+  }
+  function suspend(){
+    hudActive = false;
+    resumeMode = openMode === 'manual' ? 'manual' : null;
+    cancelPeek();
+    openMode = null;
+    applyOpen(false);
+    removeFolioFocus();
+    if(folio) folio.classList.remove('on');
+    setAvailable(false);
+  }
+  function resume(){
+    hudActive = true;
+    if(!progress.introduced) return;
+    showAvailable();
+    if(resumeMode === 'manual'){
+      openMode = 'manual';
+      applyOpen(true);
+    } else {
+      openMode = null;
+      applyOpen(false);
+    }
+    resumeMode = null;
+  }
+  function toggleManual(){
+    if(!hudActive) return;
+    cancelPeek();
+    if(openMode === 'peek'){
+      openMode = 'manual';
+      applyOpen(true);
+      return;
+    }
+    if(openMode === 'manual'){
+      openMode = null;
+      applyOpen(false);
+    } else {
+      openMode = 'manual';
+      applyOpen(true);
+    }
+  }
+  function closeManual(){
+    cancelPeek();
+    openMode = null;
+    resumeMode = null;
+    applyOpen(false);
+  }
+  function promotePeek(){
+    if(openMode !== 'peek') return;
+    cancelPeek();
+    openMode = 'manual';
+    applyOpen(true);
+  }
+  function introduce(){
+    if(!progress.introduced){
+      progress.introduced = true;
+      refresh(false);
+    }
+    showAvailable();
+  }
+  function peek(){
+    if(!hudActive || openMode === 'manual') return;
+    cancelPeek();
+    openMode = 'peek';
+    applyOpen(true);
+    peekTimer = setTimeout(function(){
+      peekTimer = null;
+      if(openMode === 'peek'){
+        openMode = null;
+        applyOpen(false);
+      }
+    }, isTouch ? 5200 : 4200);
+  }
+  function refresh(show){
+    if(!progress.introduced) return;
+    if(count) count.textContent = completed() + ' / 4' + (isTouch ? '' : '  ·  F');
+    if(observation) observation.textContent = latest;
+    const states = {
+      inspect:progress.inspected,
+      isolate:progress.isolated,
+      restore:progress.restored,
+      door:progress.doorRevealed
+    };
+    let currentFound = false;
+    stepEls.forEach(function(el){
+      const done = !!states[el.dataset.step];
+      el.classList.toggle('done', done);
+      const current = !done && !currentFound;
+      el.classList.toggle('current', current);
+      if(current){ el.setAttribute('aria-current', 'step'); currentFound = true; }
+      else el.removeAttribute('aria-current');
+    });
+    if(show) peek();
+  }
+  function write(text, show){
+    latest = text;
+    refresh(show !== false);
+  }
+  function pulse(pattern){
+    if(isTouch && navigator.vibrate){
+      try { navigator.vibrate(pattern); } catch(e){ /* haptics are optional */ }
+    }
+  }
+
+  function inspect(){
+    introduce();
+    if(!progress.inspected){
+      progress.inspected = true;
+      write('Gauge: almost no pressure. The branch must be isolated before the main wheel is adjusted.');
+      pulse(18);
+      note('The gauge is almost dead.', 'line three · feed present · isolate the branch before adjustment');
+      return;
+    }
+    if(progress.restored){
+      write('Gauge: working pressure holds. Fountain service is restored.', false);
+      note('Working pressure holds.', 'line three · fountain service restored');
+    } else if(progress.valveStep === 1){
+      write('Gauge: pressure is returning, still below the working band.', false);
+      note('Pressure is climbing.', 'the main wheel needs one measured adjustment');
+    } else if(progress.isolated){
+      write('Gauge: the branch is isolated. The main wheel is safe to move.', false);
+      note('The branch is isolated.', 'adjust the main wheel in measured turns');
+    } else {
+      write('Gauge: almost no pressure. Isolate the service cock one coupling down the terrace.', false);
+      note('The reading has not changed.', 'isolate line three before touching the main wheel');
+    }
+  }
+
+  function isolate(){
+    introduce();
+    if(!progress.inspected){
+      write('Trace the feed at the lounge gauge before moving the service cock.', true);
+      note('Do not move it blind.', 'read the pressure gauge first');
+      return;
+    }
+    if(progress.isolated){
+      write(progress.restored
+        ? 'The isolator remains seated. Line three is holding.'
+        : 'The branch is isolated. Continue at the main wheel.', false);
+      note('The service cock is seated.', progress.restored ? 'line three holds' : 'the main wheel is ready');
+      return;
+    }
+    progress.isolated = true;
+    Sound.valve(false);
+    pulse([18, 35, 18]);
+    write('Branch isolated. The main wheel can now be opened without shocking the old line.');
+    note('Line three is isolated.', 'the main wheel is safe to adjust');
+  }
+
+  function adjust(){
+    introduce();
+    if(!progress.inspected){
+      write('Read the gauge before applying force to the main wheel.', true);
+      note('The wheel resists.', 'read the gauge before applying force');
+      return;
+    }
+    if(!progress.isolated){
+      write('The live branch must be isolated before the main wheel moves.', true);
+      note('The wheel stays where it is.', 'isolate line three one coupling down the terrace');
+      return;
+    }
+    if(progress.restored){
+      write('Line three remains at working pressure. No further adjustment is needed.', false);
+      note('The setting is steady.', 'line three · working pressure');
+      return;
+    }
+    if(progress.valveStep === 0){
+      progress.valveStep = 1;
+      Sound.valve(false);
+      pulse([16, 28, 16]);
+      write('Main wheel: first measured turn. Pressure is returning below the working band.');
+      note('The old wheel yields.', 'pressure returning · one measured turn remains');
+      return;
+    }
+
+    progress.valveStep = 2;
+    progress.restored = true;
+    valveOpen = true;
+    LORE.valve = true;
+    fountainWater.visible = true;
+    Sound.valve(true);
+    pulse([22, 38, 22]);
+    write('Gauge: working pressure. The spring-fed fountain is running again.');
+    note('Line three holds at working pressure.', 'the fountain answers across the terrace');
+  }
+
+  function tryDoor(){
+    introduce();
+    Sound.doorRattle();
+    if(!progress.restored){
+      if(!progress.inspected){
+        write('The manager keeps the key. The lounge service line disappears through this wall.', true);
+        note('Locked. The manager keeps the key.', 'a service line continues through the wall');
+      } else if(!progress.isolated){
+        write('The door remains locked. Line three is still unsafe to adjust.', true);
+        note('The lock does not move.', 'line three still needs isolation');
+      } else {
+        write('The door remains locked. Line three is still below working pressure.', true);
+        note('The lock does not move.', 'restore working pressure at the main wheel');
+      }
+      return;
+    }
+    if(!progress.doorRevealed){
+      progress.doorRevealed = true;
+      managerOfficeReveal.visible = true;
+      pulse([24, 42, 24]);
+      write('Manager’s office: the door gives only an inch. The resort’s sole satellite phone is inside.');
+      note('The door gives an inch.', 'inside: the resort’s sole satellite phone');
+      return;
+    }
+    write('The opening goes no wider. The satellite phone remains inside the locked office.', false);
+    note('The opening goes no wider.', 'the satellite phone remains inside');
+  }
+
+  function archiveSeen(){
+    progress.archiveSeen = true;
+    introduce();
+    if(!progress.inspected){
+      write('The 1965 service photograph follows the same terrace run. Find its gauge on the west wall.', true);
+    }
+  }
+
+  if(toggle){
+    toggle.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      toggleManual();
+    });
+  }
+  if(folio){
+    folio.addEventListener('pointerdown', function(e){
+      e.stopPropagation();
+      if(!toggle || (e.target !== toggle && !toggle.contains(e.target))) promotePeek();
+    });
+    folio.addEventListener('touchstart', function(e){
+      e.stopPropagation();
+      if(!toggle || (e.target !== toggle && !toggle.contains(e.target))) promotePeek();
+    }, {passive:true});
+    folio.addEventListener('touchend', function(e){ e.stopPropagation(); }, {passive:true});
+    folio.addEventListener('focusin', promotePeek);
+  }
+
+  return {
+    progress:progress,
+    introduce:introduce,
+    inspect:inspect,
+    isolate:isolate,
+    adjust:adjust,
+    tryDoor:tryDoor,
+    archiveSeen:archiveSeen,
+    suspend:suspend,
+    resume:resume,
+    toggleFolio:function(){ introduce(); toggleManual(); },
+    closeFolio:closeManual,
+    isFolioOpen:function(){ return !!(folio && folio.classList.contains('open')); },
+    wheelTarget:function(){ return progress.valveStep === 0 ? 0 : (progress.valveStep === 1 ? -1.55 : -3.4); },
+    gaugeTarget:function(){
+      if(progress.restored) return -0.75;
+      if(progress.valveStep === 1) return -0.12;
+      return progress.isolated ? 0.34 : 0.65;
+    },
+    isolatorTarget:function(){ return progress.isolated ? -Math.PI / 2 : 0; },
+    doorTarget:function(){ return progress.doorRevealed ? 0.36 : 0; },
+    prompt:function(root){
+      if(root.userData.isLineGauge) return progress.restored ? 'Confirm working pressure' : 'Inspect the gauge and feed';
+      if(root.userData.isLineIsolator){
+        if(!progress.inspected) return 'Inspect the service cock';
+        return progress.isolated ? 'Check the isolator' : 'Isolate line three';
+      }
+      if(root.userData.isValve){
+        if(!progress.inspected) return 'Inspect the main wheel';
+        if(!progress.isolated) return 'Prepare the main wheel';
+        if(progress.restored) return 'Check line three';
+        return progress.valveStep === 0 ? 'Crack the main wheel' : 'Set working pressure';
+      }
+      if(root.userData.isManagerDoor){
+        if(progress.doorRevealed) return 'Look through the opening';
+        return progress.restored ? 'Ease the door open' : 'Try the door';
+      }
+      return null;
+    }
+  };
+})();
+
+function inspectLineGauge(){ LineThree.inspect(); }
+function isolateLineThree(){ LineThree.isolate(); }
+function adjustLineThree(){ LineThree.adjust(); }
+function tryManagerDoor(){ LineThree.tryDoor(); }
 
 let seated = null, seatTimer = 0;
 function sitDown(seat){
@@ -3679,6 +4156,7 @@ function openArchive(entry){
   document.getElementById('photoMeta').textContent = entry.meta;
   image.src = entry.src;
   image.alt = entry.alt;
+  if(entry.id === 'water') LineThree.archiveSeen();
 
   // Freeze locomotion before releasing pointer lock. pointerlockchange only opens the
   // pause screen from the play state, so the inspection view remains in control.
@@ -3731,6 +4209,15 @@ addEventListener('keydown', function(e){
   if(e.code === 'Escape' && state === 'archive'){
     e.preventDefault();
     closeArchive();
+    return;
+  }
+  if(e.code === 'KeyF' && state === 'play'){
+    e.preventDefault();
+    LineThree.toggleFolio();
+    return;
+  }
+  if(e.code === 'Escape' && LineThree.isFolioOpen()){
+    LineThree.closeFolio();
     return;
   }
   keys[e.code] = true;
@@ -3847,7 +4334,8 @@ function updateTarget(){
   if(target && target.userData.act){
     let label = target.userData.act.label;
     if(target.userData.isRecord) label = recordPlaying ? 'Lift the needle' : 'Drop the needle';
-    if(target.userData.isValve) label = valveOpen ? 'Close the valve' : 'Open the valve';
+    const lineLabel = LineThree.prompt(target);
+    if(lineLabel) label = lineLabel;
     setPrompt(label, true);
   } else {
     setPrompt('', false);
@@ -4046,10 +4534,14 @@ function animateWorld(dt, time){
     tonearm.rotation.y += (-0.55 - tonearm.rotation.y) * Math.min(1, 1.4 * dt);
   }
 
-  const wheelTarget = valveOpen ? -3.4 : 0;
+  const wheelTarget = LineThree.wheelTarget();
   valveSpin.rotation.z += (wheelTarget - valveSpin.rotation.z) * Math.min(1, 2.4 * dt);
-  const gaugeTarget = valveOpen ? -0.75 : 0.65;
+  const gaugeTarget = LineThree.gaugeTarget();
   gaugeNeedle.rotation.z += (gaugeTarget - gaugeNeedle.rotation.z) * Math.min(1, 2.0 * dt);
+  const isolatorTarget = LineThree.isolatorTarget();
+  isolatorTurn.rotation.z += (isolatorTarget - isolatorTurn.rotation.z) * Math.min(1, 3.2 * dt);
+  const doorTarget = LineThree.doorTarget();
+  managerDoorLeaf.rotation.y += (doorTarget - managerDoorLeaf.rotation.y) * Math.min(1, 2.2 * dt);
 }
 
 function tick(){
@@ -4448,7 +4940,7 @@ const Teaser = (function(){
     },
     skip: function(){ finish(0); },
     update: function(){},
-    totalSeconds: 14.5
+    totalSeconds: 25.6
   };
 })();
 
@@ -4471,6 +4963,11 @@ function showTutor(){
 
 function setPlayHudVisible(visible){
   document.body.classList.toggle('play-hud-off', !visible);
+  // The folio is part of play, never part of a menu, modal inspection, pause or teaser.
+  // Suspension closes it, removes it from focus order/the accessibility tree and saves
+  // only an explicitly manual-open state. A transient progress peek never reappears.
+  if(visible && state === 'play') LineThree.resume();
+  else LineThree.suspend();
 }
 
 let welcomeShown = false;
@@ -4542,11 +5039,13 @@ function enter(){
         if(state === 'play'){
           setPlayHudVisible(true);
           showTutor();
+          LineThree.introduce();
         }
       });
     } else {
       setPlayHudVisible(true);
       if(!tutorShown) showTutor();
+      LineThree.introduce();
     }
     enterTransition = false;
   }, 820);
@@ -4576,7 +5075,10 @@ bindEnter(document.getElementById('resumeBtn'));
     pauseEl.style.display = 'none';
     const l = document.getElementById('loading'); if(l) l.classList.add('done');
     Teaser.start(function(){
-      startEl.classList.add('post-film');
+      // Return to the complete title lockup. The teaser ends on GONE AWAY, and the
+      // room should cradle that identity rather than dropping the player into an
+      // anonymous pair of buttons.
+      startEl.classList.remove('post-film');
       startEl.style.display = 'flex';
       btn.textContent = 'Replay Teaser';
       const enter = document.getElementById('enterBtn');
