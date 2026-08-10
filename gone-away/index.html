@@ -237,7 +237,7 @@
   @keyframes loadTravel{0%{transform:translateX(-100%)}55%,100%{transform:translateX(100%)}}
 
   /* ---------------- authored teaser video ---------------- */
-  /* Preserve the owner's finished 19-second teaser in its 16:9 composition
+  /* Preserve the owner's finished 14.5-second teaser in its 16:9 composition
      in every viewport; black belongs around the image when the display is wider/taller,
      never a crop through the island, cocktail, or end title. */
   #teaserFilm{position:fixed;inset:0;z-index:40;display:grid;place-items:center;
@@ -359,7 +359,7 @@
 
 <div id="teaserFilm" role="dialog" aria-modal="true" aria-label="Gone Away teaser" aria-hidden="true">
   <video id="teaserVideo" preload="auto" playsinline disablepictureinpicture aria-label="Gone Away teaser video">
-    <source src="./media/gone-away-teaser.mp4" type="video/mp4">
+    <source src="./media/gone-away-teaser-v2.mp4" type="video/mp4">
   </video>
   <button id="teaserClose" type="button" aria-label="Return to the resort">Return</button>
   <div id="teaserLoad" role="status">Preparing the teaser</div>
@@ -4448,7 +4448,7 @@ const Teaser = (function(){
     },
     skip: function(){ finish(0); },
     update: function(){},
-    totalSeconds: 19
+    totalSeconds: 14.5
   };
 })();
 

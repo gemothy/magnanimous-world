@@ -2,7 +2,7 @@
 
 First-person browser build of the Magnanimis lounge. The environment and ambient sound are
 generated at runtime with Three.js r128, with commissioned archive and material images under
-`assets/`. Authored media also includes the teaser at `media/gone-away-teaser.mp4` and the
+`assets/`. Authored media also includes the teaser at `media/gone-away-teaser-v2.mp4` and the
 soundtrack streamed from the existing Tiki Lounge public media origin. A local symlink is
 retained for verification and recovery.
 
@@ -14,7 +14,7 @@ python3 -m http.server 8791     # then open http://localhost:8791/index.html
 Serve over http — `file://` blocks the record catalog and media fetches. There is deliberately
 no generated music fallback; if the album is unavailable, the room keeps only its ambience.
 
-The title screen offers **Watch the teaser** (the authored 19-second video; Return or Escape) and
+The title screen offers **Watch the teaser** (the authored 14.5-second video; Return or Escape) and
 **Enter the lounge**. In the lounge: WASD to walk, mouse to look, **E** to interact, **Esc** to
 release the cursor. Interactive: the record player, the LP stack, three sofas, the valve, the
 locked door and six independently placed archive photographs. On touch devices, a short tap
@@ -79,7 +79,7 @@ was solving a problem that does not exist.
 
 ## The teaser
 
-`media/gone-away-teaser.mp4` is the primary teaser: 19 seconds, 1280x720 at 24 fps with its
+`media/gone-away-teaser-v2.mp4` is the primary teaser: 14.5 seconds, 1280x720 at 24 fps with its
 own AAC stereo mix and baked 2.39:1 matte. It plays untouched on a black `object-fit:contain`
 stage, so do not add another letterbox or crop the frame. The menu click is the unmuted play
 gesture; the video volume eases in over 500 ms. Return and Escape share a short audio/visual
