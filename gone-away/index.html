@@ -2,18 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Gone Away — The Lounge</title>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
 <style>
   :root{
-    --gold:#e8c48a; --bone:#f2e6d0;
+    --gold:#e8c48a; --gold-bright:#f4d9a8; --bone:#f2e6d0;
+    --ease-out:cubic-bezier(.16,1,.3,1);
+    --display:Didot,"Bodoni 72","Bodoni MT",Georgia,serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{width:100%;height:100%;overflow:hidden;background:#050a10;
     font-family:'Jost',system-ui,sans-serif;color:var(--bone);
-    user-select:none;-webkit-user-select:none;touch-action:none}
+    user-select:none;-webkit-user-select:none}
+  body{touch-action:none}
+  body.photo-open{touch-action:pan-y pinch-zoom}
   canvas{position:fixed;inset:0;display:block;touch-action:none}
 
   #vig{position:fixed;inset:0;pointer-events:none;z-index:3;
@@ -23,51 +27,152 @@
     animation:none}
   @keyframes gr{0%{transform:translate(0,0)}33%{transform:translate(-3%,2%)}66%{transform:translate(2%,-3%)}100%{transform:translate(0,0)}}
 
-  #reticle{position:fixed;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;
-    background:rgba(242,230,208,.42);z-index:5;pointer-events:none;transition:opacity .3s,transform .2s;
+  #reticle{position:fixed;left:50%;top:50%;width:3px;height:3px;margin:-1.5px;border-radius:50%;
+    background:rgba(242,230,208,.52);z-index:5;pointer-events:none;transition:opacity .3s,background .22s;
     box-shadow:0 0 6px rgba(0,0,0,.9)}
-  #reticle.hot{transform:scale(1.9);background:rgba(232,196,138,.95)}
-  #prompt{position:fixed;left:50%;top:calc(50% + 30px);transform:translateX(-50%);z-index:6;
-    font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
-    opacity:0;transition:opacity .18s;pointer-events:none;
+  #reticle::after{content:"";position:absolute;left:50%;top:50%;width:14px;height:14px;
+    border:1px solid rgba(232,196,138,.54);border-radius:50%;
+    transform:translate(-50%,-50%) scale(.7);opacity:0;transition:opacity .24s ease,transform .24s ease}
+  #reticle.hot{background:var(--gold-bright)}
+  #reticle.hot::after{opacity:.72;transform:translate(-50%,-50%) scale(1)}
+  #prompt{position:fixed;left:50%;top:calc(50% + 30px);transform:translate(-50%,4px);z-index:6;
+    display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.19em;text-transform:uppercase;opacity:0;
+    transition:opacity .18s ease,transform .24s ease;pointer-events:none;
     text-shadow:0 1px 8px rgba(0,0,0,.95);white-space:nowrap}
-  #prompt b{color:var(--gold);font-weight:400}
-  #note{position:fixed;left:50%;bottom:11%;transform:translateX(-50%);z-index:6;
-    font-size:clamp(14px,2vw,18px);font-weight:200;letter-spacing:.1em;opacity:0;
-    transition:opacity 1.1s;pointer-events:none;text-shadow:0 2px 14px rgba(0,0,0,.95);text-align:center;
-    white-space:pre-line;line-height:1.9}
+  #prompt.on{opacity:1;transform:translate(-50%,0)}
+  #prompt kbd{display:grid;place-items:center;min-width:23px;height:23px;padding:0 6px;
+    border:1px solid rgba(232,196,138,.55);border-radius:999px;font:9px var(--mono);
+    letter-spacing:0;color:var(--gold);background:rgba(4,8,12,.28)}
+  #note{position:fixed;left:50%;bottom:11%;width:min(88vw,680px);
+    transform:translate(-50%,8px);z-index:6;font-size:clamp(14px,2vw,18px);font-weight:200;
+    letter-spacing:.1em;opacity:0;transition:opacity .72s ease,transform .55s var(--ease-out);
+    pointer-events:none;text-shadow:0 2px 14px rgba(0,0,0,.95);text-align:center;
+    white-space:pre-line;line-height:1.75;text-wrap:balance}
+  #note.on{opacity:1;transform:translate(-50%,0);transition-duration:.22s,.42s}
   #note .meta{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
-    color:rgba(232,196,138,.85)}
+    color:rgba(232,196,138,.85);margin-top:6px;line-height:1.55}
+
+  /* One photograph at a time, selected by its physical frame. This is deliberately not
+     a carousel: returning to the room and finding another image is the interaction. */
+  #photoInspect{position:fixed;inset:0;z-index:46;display:flex;align-items:center;justify-content:center;
+    padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right))
+      max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));
+    background:
+      radial-gradient(ellipse at 34% 42%,rgba(80,54,32,.22),transparent 48%),
+      linear-gradient(135deg,rgba(5,7,9,.985),rgba(11,9,7,.975));
+    visibility:hidden;opacity:0;pointer-events:none;overflow:auto;overscroll-behavior:contain;
+    touch-action:pan-y pinch-zoom;user-select:text;-webkit-user-select:text;
+    transition:opacity .38s ease,visibility 0s .38s}
+  #photoInspect.on{visibility:visible;opacity:1;pointer-events:auto;transition:opacity .38s ease}
+  .photo-inspect-shell{position:relative;margin:auto;width:min(94vw,940px);display:grid;
+    grid-template-columns:minmax(280px,1fr) minmax(240px,.72fr);align-items:center;gap:clamp(28px,5vw,68px);
+    padding:clamp(24px,4.4vw,52px);border:1px solid rgba(232,196,138,.22);
+    background:linear-gradient(145deg,rgba(31,24,18,.78),rgba(8,9,10,.9));
+    box-shadow:0 32px 100px rgba(0,0,0,.72),inset 0 0 80px rgba(193,132,72,.035)}
+  .photo-inspect-art{padding:clamp(8px,1.4vw,14px);background:#18130f;
+    border:1px solid rgba(232,196,138,.68);box-shadow:0 18px 44px rgba(0,0,0,.58)}
+  #photoImage{display:block;width:100%;max-height:70vh;object-fit:contain;background:#cfc7b8;
+    touch-action:pinch-zoom;-webkit-user-drag:none}
+  .photo-inspect-copy{align-self:center;text-align:left}
+  #photoKicker{font:9px var(--mono);letter-spacing:.34em;text-transform:uppercase;
+    color:rgba(232,196,138,.68);margin-bottom:18px}
+  #photoTitle{font-family:var(--display);font-size:clamp(26px,3.5vw,44px);font-weight:400;
+    line-height:1.08;letter-spacing:.035em;color:#f6ead4;text-wrap:balance}
+  #photoMeta{margin-top:18px;font:11px/1.75 var(--mono);letter-spacing:.13em;text-transform:uppercase;
+    color:rgba(232,196,138,.78);text-wrap:balance}
+  #photoClose{position:absolute;right:18px;top:16px;z-index:2;min-height:48px;padding:11px 14px;
+    border:0;border-bottom:1px solid rgba(232,196,138,.34);background:rgba(6,7,8,.5);cursor:pointer;
+    font:9px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:rgba(242,230,208,.72)}
+  #photoClose:hover,#photoClose:focus-visible{color:#fff6e6;border-color:var(--gold);outline:none}
+  .photo-open #reticle,.photo-open #prompt,.photo-open #note,.photo-open #tutor{opacity:0!important}
+  .photo-open #rotate{display:none!important}
+  #welcome{position:fixed;left:50%;bottom:14%;width:min(86vw,720px);z-index:7;
+    transform:translate(-50%,12px);text-align:center;pointer-events:none;opacity:0;
+    transition:opacity 1.15s ease,transform 1.35s var(--ease-out);text-shadow:0 3px 24px rgba(0,0,0,.96)}
+  #welcome.on{opacity:1;transform:translate(-50%,0)}
+  #welcome .welcome-kicker{font-family:var(--mono);font-size:9px;letter-spacing:.44em;
+    text-indent:.44em;text-transform:uppercase;color:rgba(232,196,138,.78);margin-bottom:13px}
+  #welcome .welcome-line{font-family:var(--display);font-size:clamp(20px,3.2vw,34px);
+    letter-spacing:.055em;color:rgba(248,238,219,.94)}
+  .play-hud-off #reticle,.play-hud-off #prompt,.play-hud-off #note,.play-hud-off #tutor{
+    opacity:0!important}
+  body.resting #reticle,body.resting #prompt{opacity:0!important}
 
   /* The room stays visible behind the title but is dimmed hard. At the old opacity the
      firepit sat directly behind the subtitle and the type had nothing clean to sit on —
      a menu needs a quiet field far more than it needs to show off the scene. */
   .screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
     align-items:center;justify-content:center;text-align:center;
+    padding:max(28px,env(safe-area-inset-top)) 24px max(70px,calc(50px + env(safe-area-inset-bottom)));
     background:
-      radial-gradient(ellipse at 50% 46%, rgba(5,9,15,.62), rgba(3,6,11,.93) 62%),
-      linear-gradient(180deg, rgba(3,6,11,.55), rgba(3,6,11,.30) 40%, rgba(3,6,11,.8))}
-  .title{font-weight:200;font-size:clamp(34px,8vw,88px);letter-spacing:.36em;
-    text-indent:.36em;line-height:1;text-shadow:0 0 70px rgba(169,198,232,.3)}
-  .rule{width:min(58vw,400px);height:1px;margin:24px 0 18px;
-    background:linear-gradient(90deg,transparent,rgba(232,196,138,.75),transparent)}
+      radial-gradient(ellipse at 50% 45%, rgba(5,9,15,.40), rgba(3,6,11,.68) 57%, rgba(2,5,9,.91) 100%),
+      linear-gradient(180deg, rgba(3,6,11,.48), rgba(3,6,11,.18) 42%, rgba(3,6,11,.82));
+    opacity:1;transition:opacity .8s var(--ease-out);isolation:isolate}
+  .screen::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(112deg,rgba(220,137,65,.045),transparent 40%,rgba(76,129,190,.055));
+    mix-blend-mode:screen}
+  .screen.leaving{opacity:0;pointer-events:none}
+  .title{font-family:var(--display);font-weight:400;font-size:clamp(44px,7.2vw,94px);letter-spacing:.22em;
+    text-indent:.22em;line-height:.92;color:var(--bone);white-space:nowrap;
+    background:linear-gradient(180deg,#fffaf0 4%,#eadabc 58%,#c6a874 120%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    text-shadow:0 0 70px rgba(169,198,232,.20);filter:drop-shadow(0 3px 22px rgba(0,0,0,.52))}
+  .rule{position:relative;width:min(58vw,400px);height:1px;margin:24px 0 18px;overflow:hidden;
+    background:linear-gradient(90deg,transparent,rgba(232,196,138,.72),transparent)}
+  .rule::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent 10%,rgba(255,244,217,.95) 50%,transparent 90%);
+    transform:translateX(-115%)}
   .sub{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);opacity:.9}
   .enter{pointer-events:auto;cursor:pointer;font-family:'Jost',sans-serif;
     font-weight:300;font-size:13px;letter-spacing:.34em;text-transform:uppercase;color:var(--bone);
     background:transparent;border:1px solid rgba(242,230,208,.34);border-radius:1px;padding:15px 44px;
-    transition:background .4s ease,border-color .4s ease,letter-spacing .4s ease}
-  .enter:hover{background:rgba(242,230,208,.07);border-color:rgba(232,196,138,.85);letter-spacing:.40em}
+    min-width:188px;min-height:49px;transition:background .45s ease,border-color .45s ease,color .45s ease,
+      box-shadow .45s ease,transform .45s var(--ease-out)}
+  .enter:not(.ghost){background:linear-gradient(135deg,rgba(232,196,138,.12),rgba(242,230,208,.025));
+    border-color:rgba(232,196,138,.58);box-shadow:inset 0 0 28px rgba(232,196,138,.025)}
+  .enter:hover{background:rgba(242,230,208,.085);border-color:rgba(244,217,168,.92);
+    color:#fffaf0;box-shadow:0 9px 32px rgba(0,0,0,.24),inset 0 0 32px rgba(232,196,138,.05);
+    transform:translateY(-1px)}
+  .enter:active{transform:translateY(0)}
+  .enter:focus-visible,#prefsToggle:focus-visible,.load label:focus-visible{
+    outline:1px solid var(--gold-bright);outline-offset:5px}
   .acts{margin-top:54px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+
+  /* After the teaser's own end title, returning to the full title lockup would say the
+     same thing twice. Resolve instead onto the living room with only the next choice. */
+  #start.post-film{background:
+    radial-gradient(ellipse at 50% 56%,rgba(5,9,15,.12),rgba(3,6,11,.38) 64%,rgba(2,5,9,.72) 100%),
+    linear-gradient(180deg,rgba(3,6,11,.22),rgba(3,6,11,.06) 48%,rgba(3,6,11,.62))}
+  #start.post-film .title,#start.post-film .rule,#start.post-film .sub{display:none}
+  #start.post-film .acts{margin-top:42vh}
+  #start.post-film #prefsToggle{display:none}
+
+  /* The menu reveals in measured layers rather than appearing as one composited slab. */
+  #start .title{animation:titleIn 1.55s var(--ease-out) both}
+  #start .rule{animation:ruleIn 1.25s .24s var(--ease-out) both}
+  #start .rule::after{animation:ruleGlint 1.15s 1.0s var(--ease-out) both}
+  #start .sub{animation:softIn 1.2s .42s var(--ease-out) both}
+  #start .acts{animation:softIn 1.25s .62s var(--ease-out) both}
+  #start #prefsToggle{animation:quietIn 1.2s 1.0s ease both}
+  @keyframes titleIn{from{opacity:0;transform:translateY(16px);filter:blur(8px) drop-shadow(0 3px 22px rgba(0,0,0,.52))}
+    to{opacity:1;transform:translateY(0);filter:blur(0) drop-shadow(0 3px 22px rgba(0,0,0,.52))}}
+  @keyframes ruleIn{from{opacity:0;transform:scaleX(.12)}to{opacity:1;transform:scaleX(1)}}
+  @keyframes ruleGlint{from{transform:translateX(-115%)}to{transform:translateX(115%)}}
+  @keyframes softIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes quietIn{from{opacity:0}to{opacity:1}}
 
   /* Settings, folded away behind one quiet word. */
   #prefsToggle{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:22;
     pointer-events:auto;cursor:pointer;background:none;border:0;
+    min-width:92px;min-height:34px;padding:8px 12px;
     font-family:var(--mono);font-size:9px;letter-spacing:.34em;text-transform:uppercase;
-    color:rgba(242,230,208,.3);transition:color .4s ease}
-  #prefsToggle:hover{color:rgba(232,196,138,.85)}
-  #prefs{max-height:0;overflow:hidden;opacity:0;pointer-events:none;
-    transition:max-height .6s cubic-bezier(.16,1,.3,1),opacity .5s ease,margin .6s ease}
-  #prefs.open{max-height:180px;opacity:1;pointer-events:auto;margin-top:34px}
+    color:rgba(242,230,208,.42);transition:color .4s ease}
+  #prefsToggle:hover{color:rgba(244,217,168,.92)}
+  #prefs{max-height:0;overflow:hidden;opacity:0;pointer-events:none;visibility:hidden;
+    transition:max-height .6s var(--ease-out),opacity .5s ease,margin .6s var(--ease-out),visibility 0s .6s}
+  #prefs.open{max-height:180px;opacity:1;pointer-events:auto;visibility:visible;margin-top:34px;
+    transition:max-height .6s var(--ease-out),opacity .5s ease,margin .6s var(--ease-out),visibility 0s}
   .opts{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:center;
     font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
     color:rgba(242,230,208,.55);pointer-events:auto}
@@ -88,6 +193,7 @@
   .load input{display:none}
   #pause{display:none}
   #pause .title{font-size:clamp(18px,3vw,28px);letter-spacing:.34em}
+  #pause .rule{width:min(34vw,220px);margin:18px 0 30px}
   #drop{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
     background:rgba(4,8,14,.88);font-family:var(--mono);font-size:12px;letter-spacing:.26em;
     text-transform:uppercase;color:var(--gold)}
@@ -99,75 +205,133 @@
     font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);text-align:center;padding:30px}
   #rotate svg{width:52px;height:52px;stroke:var(--gold);fill:none;stroke-width:1.5}
   #loading{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
-    background:#050a10;font-family:var(--mono);font-size:11px;letter-spacing:.3em;
-    text-transform:uppercase;color:rgba(242,230,208,.55)}
+    flex-direction:column;overflow:hidden;isolation:isolate;opacity:1;visibility:visible;
+    background:
+      radial-gradient(circle at 50% 46%,rgba(25,48,71,.27),transparent 30%),
+      radial-gradient(ellipse at 50% 115%,rgba(16,68,82,.24),transparent 48%),#050a10;
+    font-family:var(--mono);text-transform:uppercase;color:rgba(242,230,208,.66);
+    transition:opacity .9s var(--ease-out),visibility 0s .9s}
+  #loading.done{opacity:0;visibility:hidden;pointer-events:none}
+  #loading::before{content:"";position:absolute;z-index:-1;width:min(74vw,720px);aspect-ratio:1;
+    border-radius:50%;border:1px solid rgba(164,199,225,.035);box-shadow:0 0 100px rgba(95,148,190,.035)}
+  .load-mark{position:relative;width:74px;height:74px;margin-bottom:28px;display:grid;place-items:center;
+    color:rgba(244,217,168,.9);filter:drop-shadow(0 0 24px rgba(194,214,230,.12))}
+  .load-orbit{position:absolute;inset:3px;border:1px solid rgba(232,196,138,.34);border-radius:50%;
+    animation:orbitBreathe 2.8s ease-in-out infinite}
+  .load-orbit::before,.load-orbit::after{content:"";position:absolute;left:50%;top:50%;background:#050a10}
+  .load-orbit::before{width:84px;height:18px;transform:translate(-50%,-50%)}
+  .load-orbit::after{width:18px;height:84px;transform:translate(-50%,-50%)}
+  .load-diamond{position:absolute;width:34px;height:34px;border:1px solid rgba(169,198,232,.28);
+    transform:rotate(45deg);animation:diamondTurn 9s linear infinite}
+  .load-mark span{position:relative;z-index:2;font-family:var(--display);font-size:20px;font-weight:400;
+    letter-spacing:.08em;text-indent:.08em}
+  .load-kicker{font-size:9px;letter-spacing:.5em;text-indent:.5em;color:rgba(232,196,138,.62);margin-bottom:13px}
+  .load-copy{font-size:10px;letter-spacing:.32em;text-indent:.32em;color:rgba(242,230,208,.62)}
+  .load-line{position:relative;width:min(44vw,280px);height:1px;margin-top:22px;overflow:hidden;
+    background:rgba(169,198,232,.08)}
+  .load-line::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(232,196,138,.82),rgba(182,214,237,.74),transparent);
+    transform:translateX(-100%);animation:loadTravel 2.4s var(--ease-out) infinite}
+  @keyframes orbitBreathe{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:1;transform:scale(1.04)}}
+  @keyframes diamondTurn{to{transform:rotate(405deg)}}
+  @keyframes loadTravel{0%{transform:translateX(-100%)}55%,100%{transform:translateX(100%)}}
 
-  /* ---------------- teaser / attract mode ---------------- */
-  /* Anamorphic bars. The pitch asks for an anamorphic lens and 16:9 stills; letterboxing
-     to 2.39 is the cheapest, strongest signal that what you are watching is a film. */
-  .bar{position:fixed;left:0;right:0;height:0;background:#000;z-index:12;pointer-events:none;
-    transition:height 1.1s cubic-bezier(.16,1,.3,1)}
-  #barT{top:0} #barB{bottom:0}
-  body.cine #barT, body.cine #barB{height:calc((100vh - (100vw / 2.39)) / 2)}
-  body.cine #reticle, body.cine #prompt{opacity:0 !important}
-
-  /* Caption: one restrained line at a time, low in frame, mid-century and quiet. */
-  #cap{position:fixed;left:50%;transform:translateX(-50%);bottom:16.5%;z-index:14;
-    width:min(78vw,860px);text-align:center;pointer-events:none;
-    font-weight:200;font-size:clamp(16px,2.3vw,27px);line-height:1.5;letter-spacing:.055em;
-    color:var(--bone);text-shadow:0 2px 26px rgba(0,0,0,.98),0 0 70px rgba(0,0,0,.7);
-    opacity:0;transition:opacity 1.5s ease}
-  #cap.on{opacity:1}
-
-  /* Title card, per the pitch's tenth prompt: thin mid-century film lettering,
-     restrained, floating over dark water. */
-  /* Sits above centre: the horizon and the moon's path own the lower half of frame, and
-     the subtitle used to land directly on the island silhouette where it vanished. */
-  #card{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;pointer-events:none;opacity:0;
-    padding-bottom:19vh;transition:opacity 2.4s ease}
-  #card.on{opacity:1}
-  #card .ct{font-weight:200;font-size:clamp(38px,9.5vw,132px);letter-spacing:.42em;
-    text-indent:.42em;line-height:1;color:#f4ead8;
-    text-shadow:0 0 90px rgba(169,198,232,.34),0 2px 40px rgba(0,0,0,.9)}
-  #card .cr{width:min(46vw,340px);height:1px;margin:30px 0 18px;
-    background:linear-gradient(90deg,transparent,rgba(232,196,138,.85),transparent);
-    box-shadow:0 0 16px rgba(0,0,0,.8)}
-  #card .cs{font-family:var(--mono);font-size:clamp(9px,1.15vw,12px);letter-spacing:.44em;
-    text-transform:uppercase;color:rgba(240,214,168,.96);
-    text-shadow:0 1px 18px rgba(0,0,0,1),0 0 44px rgba(0,0,0,.9)}
-
-  /* Fade-to-black, used for the opening and between the hard cuts. Starts transparent —
-     at opacity 1 it sat over the title screen and hid the room behind it. Teaser.start()
-     raises it so the reel can open out of black. */
-  #fade{position:fixed;inset:0;z-index:13;background:#000;pointer-events:none;opacity:0;
-    transition:opacity 1.6s ease}
+  /* ---------------- authored teaser video ---------------- */
+  /* Preserve the owner's finished 19-second teaser in its 16:9 composition
+     in every viewport; black belongs around the image when the display is wider/taller,
+     never a crop through the island, cocktail, or end title. */
+  #teaserFilm{position:fixed;inset:0;z-index:40;display:grid;place-items:center;
+    background:#000;visibility:hidden;opacity:0;pointer-events:none;
+    transition:opacity .8s var(--ease-out),visibility 0s linear .8s}
+  #teaserFilm.on{visibility:visible;opacity:1;pointer-events:auto;
+    transition:opacity .8s var(--ease-out),visibility 0s}
+  #teaserFilm.leaving{opacity:0;pointer-events:none}
+  #teaserVideo{display:block;width:100%;height:100%;object-fit:contain;background:#000}
+  #teaserClose{position:absolute;top:max(20px,env(safe-area-inset-top));
+    right:max(22px,env(safe-area-inset-right));z-index:2;padding:10px 12px;
+    min-width:82px;min-height:44px;
+    border:0;border-bottom:1px solid rgba(242,230,208,.28);background:rgba(4,8,13,.16);
+    color:rgba(242,230,208,.64);font-family:var(--mono);font-size:9px;
+    letter-spacing:.34em;text-indent:.34em;text-transform:uppercase;cursor:pointer;
+    opacity:0;transition:color .25s ease,border-color .25s ease,background .25s ease,opacity .25s ease}
+  #teaserFilm.on #teaserClose{animation:teaserControlIn .6s 1.35s ease forwards}
+  #teaserClose:hover,#teaserClose:focus-visible{color:var(--bone);border-color:rgba(232,196,138,.76);
+    background:rgba(4,8,13,.48);opacity:1;outline:none}
+  #teaserLoad{position:absolute;left:50%;bottom:max(24px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);font-family:var(--mono);font-size:9px;letter-spacing:.28em;
+    text-transform:uppercase;color:rgba(242,230,208,.52);opacity:0;transition:opacity .4s ease}
+  #teaserFilm.waiting #teaserLoad{opacity:1}
+  @keyframes teaserControlIn{to{opacity:.72}}
 
   .enter.ghost{border-color:rgba(242,230,208,.2);color:rgba(242,230,208,.66)}
+
+  @media (max-width:640px){
+    .title{font-size:clamp(34px,10vw,48px);letter-spacing:.14em;text-indent:.14em}
+    .acts{margin-top:42px;gap:11px}.enter{padding:14px 25px;font-size:11px;letter-spacing:.28em}
+    .rule{width:min(72vw,360px)}#prefsToggle{bottom:18px}
+    #tutor{width:min(88vw,420px);white-space:normal;text-align:center;line-height:1.8;letter-spacing:.15em}
+    #photoInspect{padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right))
+      max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+    .photo-inspect-shell{width:100%;grid-template-columns:1fr;gap:20px;padding:48px 16px 20px}
+    #photoImage{max-height:54vh}
+    #photoTitle{font-size:clamp(23px,7vw,31px)}
+    #photoMeta{margin-top:12px;font-size:9px;line-height:1.65}
+    #photoKicker{margin-bottom:11px;font-size:8px}
+    #photoClose{right:9px;top:5px;min-height:46px}
+  }
+  @media (max-height:500px) and (min-width:641px){
+    #photoInspect{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}
+    .photo-inspect-shell{width:min(96vw,900px);grid-template-columns:minmax(190px,.68fr) 1fr;
+      gap:28px;padding:18px 52px 18px 18px}
+    #photoImage{max-height:calc(100vh - 56px)}
+    #photoTitle{font-size:clamp(22px,4.2vw,34px)}
+    #photoKicker{margin-bottom:10px}
+    #photoMeta{margin-top:10px;font-size:9px;line-height:1.55}
+  }
+  @media (prefers-reduced-motion:reduce){
+    #start .title,#start .rule,#start .sub,#start .acts,#start #prefsToggle,
+    #start .rule::after,.load-orbit,.load-diamond,.load-line::after{animation:none!important}
+    .screen,#loading,.enter,#prefs{transition-duration:.01ms!important}
+  }
 </style>
 </head>
-<body>
-<canvas id="c"></canvas>
+<body class="play-hud-off">
+<canvas id="c" tabindex="-1"></canvas>
 <div id="vig"></div>
 <div id="grain"></div>
-<div id="reticle"></div>
+<div id="reticle" aria-hidden="true"></div>
 <div id="prompt"></div>
-<div id="note"></div>
+<div id="note" role="status" aria-live="polite"></div>
+<div id="photoInspect" role="dialog" aria-modal="true" aria-labelledby="photoTitle" aria-hidden="true">
+  <div class="photo-inspect-shell">
+    <button id="photoClose" type="button">Return to lounge</button>
+    <div class="photo-inspect-art"><img id="photoImage" alt="" draggable="false"></div>
+    <div class="photo-inspect-copy">
+      <div id="photoKicker">The Magnanimis archive</div>
+      <h2 id="photoTitle"></h2>
+      <p id="photoMeta"></p>
+    </div>
+  </div>
+</div>
+<div id="welcome" aria-hidden="true">
+  <div class="welcome-kicker">The Magnanimis Resort</div>
+  <div class="welcome-line">Welcome. Leave the world behind.</div>
+</div>
 
-<div id="start" class="screen" style="display:none">
-  <div class="title">GONE AWAY</div>
-  <div class="rule"></div>
-  <div class="sub">The Magnanimis Resort</div>
+<div id="start" class="screen" style="display:none" role="dialog" aria-labelledby="mainTitle">
+  <h1 class="title" id="mainTitle">GONE AWAY</h1>
+  <div class="rule" aria-hidden="true"></div>
+  <p class="sub">The Magnanimis Resort</p>
   <div class="acts">
-    <button class="enter" id="teaserBtn">Teaser</button>
-    <button class="enter ghost" id="enterBtn">Enter</button>
+    <button class="enter" id="enterBtn">Enter Lounge</button>
+    <button class="enter ghost" id="teaserBtn">Watch Teaser</button>
   </div>
   <!-- Everything below is deliberately out of the way. A title screen that lists its
        own keybindings, its soundtrack length and four tuning sliders reads as a dev
        build; the controls are taught on entry instead, and the rest lives behind one
        quiet word. -->
-  <button id="prefsToggle">Settings</button>
-  <div id="prefs">
+  <button id="prefsToggle" aria-controls="prefs" aria-expanded="false">Settings</button>
+  <div id="prefs" aria-hidden="true">
     <div class="opts">
       <label><input type="checkbox" id="optBob"> Head bob</label>
       <label><input type="checkbox" id="optGrain" checked> Film grain</label>
@@ -183,33 +347,41 @@
 
 <!-- Shown once, on entering the lounge, then it fades and does not come back. -->
 <div id="tutor">
-  <span>WASD</span> walk &nbsp;&nbsp; <span>Mouse</span> look &nbsp;&nbsp;
-  <span>E</span> interact &nbsp;&nbsp; <span>Esc</span> release
+  <span>WASD</span> to wander &nbsp;·&nbsp; <span>Mouse</span> to look &nbsp;·&nbsp;
+  <span>E</span> when something invites you closer
 </div>
 
-<div id="pause" class="screen">
-  <div class="title">PAUSED</div>
-  <div class="rule"></div>
+<div id="pause" class="screen" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+  <h2 class="title" id="pauseTitle">PAUSED</h2>
+  <div class="rule" aria-hidden="true"></div>
   <button class="enter" id="resumeBtn">Resume</button>
 </div>
 
-<div id="barT" class="bar"></div>
-<div id="barB" class="bar"></div>
-<div id="cap"></div>
-<div id="card">
-  <div class="ct">GONE AWAY</div>
-  <div class="cr"></div>
-  <div class="cs">The Magnanimis Resort</div>
+<div id="teaserFilm" role="dialog" aria-modal="true" aria-label="Gone Away teaser" aria-hidden="true">
+  <video id="teaserVideo" preload="auto" playsinline disablepictureinpicture aria-label="Gone Away teaser video">
+    <source src="./media/gone-away-teaser.mp4" type="video/mp4">
+  </video>
+  <button id="teaserClose" type="button" aria-label="Return to the resort">Return</button>
+  <div id="teaserLoad" role="status">Preparing the teaser</div>
 </div>
-<div id="fade"></div>
 
 <div id="drop">Drop to load the record</div>
-<div id="rotate">
+<div id="rotate" role="dialog" aria-modal="true" aria-label="Landscape orientation recommended">
   <svg viewBox="0 0 48 48"><rect x="14" y="6" width="20" height="36" rx="3"/><path d="M8 30a16 16 0 0 0 32 0"/></svg>
-  Turn your device sideways
+  <span>Landscape is recommended</span>
+  <button class="enter ghost" id="rotateDismiss" type="button">Continue in portrait</button>
 </div>
 <div id="err"></div>
-<div id="loading">Building the island…</div>
+<div id="loading" role="status" aria-live="polite" aria-label="Building the island">
+  <div class="load-mark" aria-hidden="true">
+    <div class="load-orbit"></div>
+    <div class="load-diamond"></div>
+    <span>M</span>
+  </div>
+  <div class="load-kicker">Magnanimis Resort</div>
+  <div class="load-copy">Building the island</div>
+  <div class="load-line" aria-hidden="true"></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- Post-processing. r128 still ships these as plain globals, so they attach to THREE
@@ -241,7 +413,7 @@ window.addEventListener('error', function(e){
 /* ================================================================
    GONE AWAY — vertical slice: the lounge
    One room, one record player, one working valve.
-   No external assets: geometry, textures and audio are all generated.
+   The room is procedural; the authored teaser and house record library are media assets.
    Tuning lives in CFG. Everything else is grouped by section.
    ================================================================ */
 
@@ -257,7 +429,7 @@ const CFG = {
   reach: 3.6,
   musicUrl: '',         // point at './music/track.mp3' when serving over http
   // The Beach Noir Revue. Generated from tiki-lounge by scripts/build-library.mjs;
-  // needs http (the fetch fails silently on file:// and the generative loop covers).
+  // serve over http so the catalog and shared audio files can be fetched.
   libraryUrl: './audio/library.json'
 };
 
@@ -265,6 +437,9 @@ const CLOUDS = [];
 const INTERACTIVE = [];
 const BLOCKERS = [];
 const SEATS = [];
+// Session-only knowledge. These are observations the plumber can make in the lounge,
+// not answers to the wider mystery; nothing here identifies a victim or a culprit.
+const LORE = {photos:false, record:false, valve:false};
 let ENV_MAP = null;   // image-based lighting, captured from the finished room at boot
 
 // ---------------------------------------------------------------- renderer
@@ -630,14 +805,16 @@ T.carve = tex(512, function(x, s){
 }, 2, 3);
 
 T.rattan = tex(256, function(x, s){
-  x.fillStyle = '#7d5a30'; x.fillRect(0, 0, s, s);
+  // Tight tonal range: the weave should reveal itself where amber light rakes across
+  // it, not announce a checkerboard from the other side of the room.
+  x.fillStyle = '#7b5c37'; x.fillRect(0, 0, s, s);
   const n = 12, st = s / n;
   for(let i = 0; i < n; i++){
     for(let j = 0; j < n; j++){
       const over = (i + j) % 2 === 0;
-      x.fillStyle = over ? '#a8814a' : '#6b4c27';
+      x.fillStyle = over ? '#8f6d43' : '#735431';
       x.fillRect(i * st + 1, j * st + 1, st - 2, st - 2);
-      x.fillStyle = 'rgba(0,0,0,.24)';
+      x.fillStyle = 'rgba(0,0,0,.14)';
       if(over) x.fillRect(i * st + 1, j * st + st * 0.62, st - 2, st * 0.34);
       else x.fillRect(i * st + st * 0.62, j * st + 1, st * 0.34, st - 2);
     }
@@ -732,6 +909,33 @@ T.frond = new THREE.CanvasTexture(cvs(256, function(x, s){
   }
 }));
 T.frond.encoding = THREE.sRGBEncoding;
+T.frond.anisotropy = maxAniso;
+
+// Broad interior leaves, separate from the pinnate palm texture. Reusing palm cards in
+// every pot made the lounge planting look like repeated props; these read as the large,
+// waxy bird-of-paradise leaves visible in the teaser's room edges.
+T.broadLeaf = new THREE.CanvasTexture(cvs(256, function(x, s){
+  x.clearRect(0, 0, s, s);
+  const mid = s * 0.5;
+  const g = x.createLinearGradient(0, 0, s, 0);
+  g.addColorStop(0, '#173421'); g.addColorStop(0.55, '#315d36'); g.addColorStop(1, '#182f20');
+  x.fillStyle = g;
+  x.beginPath();
+  x.moveTo(5, mid);
+  x.bezierCurveTo(s * 0.25, mid - s * 0.42, s * 0.72, mid - s * 0.38, s - 5, mid);
+  x.bezierCurveTo(s * 0.72, mid + s * 0.38, s * 0.25, mid + s * 0.42, 5, mid);
+  x.closePath(); x.fill();
+  x.strokeStyle = 'rgba(160,180,112,.34)'; x.lineWidth = 3;
+  x.beginPath(); x.moveTo(5, mid); x.lineTo(s - 8, mid); x.stroke();
+  x.strokeStyle = 'rgba(190,205,140,.13)'; x.lineWidth = 1;
+  for(let i = 1; i < 12; i++){
+    const px = 12 + i * 19, reach = Math.sin(i / 12 * Math.PI) * 66;
+    x.beginPath(); x.moveTo(px, mid); x.lineTo(px + 14, mid - reach); x.stroke();
+    x.beginPath(); x.moveTo(px, mid); x.lineTo(px + 14, mid + reach); x.stroke();
+  }
+}));
+T.broadLeaf.encoding = THREE.sRGBEncoding;
+T.broadLeaf.anisotropy = maxAniso;
 
 T.spark = new THREE.CanvasTexture(cvs(128, function(x, s){
   const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
@@ -842,11 +1046,23 @@ const M = {
   // target the structure overhead is nearly the darkest thing in the picture, and that
   // is most of what makes the opening feel bright by contrast.
   panel:  new THREE.MeshStandardMaterial({map:T.panel, color:0x7e7166, roughness:0.86}),
-  pillar: new THREE.MeshStandardMaterial({map:T.carve, color:0x8a7a6b, roughness:0.78, bumpMap:T.carve, bumpScale:0.06}),
-  beam:   new THREE.MeshStandardMaterial({map:T.panel, color:0x6d6157, roughness:0.9}),
-  rattan: new THREE.MeshStandardMaterial({map:T.rattan, color:0x9c8259, roughness:0.92, bumpMap:T.rattan, bumpScale:0.02}),
+  pillar: new THREE.MeshStandardMaterial({map:T.carve, color:0x7d5a45, roughness:0.74, bumpMap:T.carve, bumpScale:0.06}),
+  // A separate carved finish for the manager's door. It begins on the same reliable
+  // procedural texture as the pillars, then receives the commissioned Magnanimis house
+  // pattern when that image finishes loading. Keeping the material separate lets the
+  // door feel bespoke without turning every board in the room into ornament.
+  carvedTeak: new THREE.MeshStandardMaterial({map:T.carve, color:0x76523f, roughness:0.72, bumpMap:T.carve, bumpScale:0.045}),
+  beam:   new THREE.MeshStandardMaterial({map:T.panel, color:0x704c35, roughness:0.78, bumpMap:T.panel, bumpScale:0.017}),
+  rattan: new THREE.MeshStandardMaterial({map:T.rattan, color:0x806a4b, roughness:0.86, bumpMap:T.rattan, bumpScale:0.014}),
+  // Unlit cage stays dark against its own diffuser instead of being blown yellow by the
+  // point light sitting inside it; the glow is seen through the weave, not painted on it.
+  cane:   new THREE.MeshBasicMaterial({color:0x5a321d}),
   // heavy linen keeps a faint sheen; fully matte fabric reads as felt
-  fabric: new THREE.MeshStandardMaterial({map:T.fabric, color:0x574e40, roughness:0.84, bumpMap:T.fabric, bumpScale:0.006}),
+  fabric: new THREE.MeshStandardMaterial({map:T.fabric, color:0x574e40, roughness:0.80, bumpMap:T.fabric, bumpScale:0.008}),
+  // A restrained tobacco-gold accent for the loose cushions. The room is immaculate
+  // 1965 luxury, not a monochrome set: one warmer textile in each seating group makes
+  // the sofas feel composed without lifting the large upholstery surfaces above the fire.
+  fabricAccent: new THREE.MeshStandardMaterial({map:T.fabric, color:0x765737, roughness:0.82, bumpMap:T.fabric, bumpScale:0.006}),
   stone:  new THREE.MeshStandardMaterial({map:T.stone, color:0x5f5c55, roughness:0.94, bumpMap:T.stone, bumpScale:0.03}),
   // Wet stone is a mirror, and a mirror's job here is to return a *narrow* column of
   // moonlight, leaving the rest of the terrace dark. Roughness widens that column: at
@@ -856,7 +1072,8 @@ const M = {
   // make it worse, because Fresnel drives reflectance toward 1 across the whole plane.
   // So this wants to go *down*, not up.
   wet:    new THREE.MeshStandardMaterial({map:T.stone, color:0x3a3833, roughness:0.13, metalness:0.0, bumpMap:T.stone, bumpScale:0.015}),
-  thatch: new THREE.MeshStandardMaterial({map:T.thatch, roughness:1, side:THREE.DoubleSide}),
+  thatch: new THREE.MeshStandardMaterial({map:T.thatch, color:0x5c4630, roughness:0.95,
+    bumpMap:T.thatch, bumpScale:0.03, side:THREE.DoubleSide}),
   mat:    new THREE.MeshStandardMaterial({map:T.mat, color:0x4c4436, roughness:1}),
   brass:  new THREE.MeshStandardMaterial({color:0xc09242, roughness:0.32, metalness:0.88}),
   // Verdigris, several stops down. On a metal the base colour is also the specular
@@ -872,11 +1089,15 @@ const M = {
   // saturated green and read as a houseplant under a lamp — the opposite of what it is
   // there to do. Foliage framing a night view works by falling to near-silhouette, so
   // that the darkest values in the frame sit directly against the brightest.
-  frond:  new THREE.MeshStandardMaterial({map:T.frond, color:0x46512f, transparent:true, alphaTest:0.42, side:THREE.DoubleSide, roughness:1}),
+  // Cutout foliage, not blended foliage. Alpha testing keeps the silhouettes crisp at
+  // distance and avoids transparent-plane sorting gaps that made palm crowns look like
+  // seven disconnected cards. A slightly lower cut preserves the fine leaflet tips.
+  frond:  new THREE.MeshStandardMaterial({map:T.frond, color:0x46512f, transparent:false, alphaTest:0.28, side:THREE.DoubleSide, roughness:1}),
+  broadLeaf: new THREE.MeshStandardMaterial({map:T.broadLeaf, color:0x26381f, transparent:false, alphaTest:0.24, side:THREE.DoubleSide, roughness:0.96}),
   glass:  new THREE.MeshStandardMaterial({color:0xdff2f0, roughness:0.05, transparent:true, opacity:0.3}),
   liquid: new THREE.MeshStandardMaterial({color:0xd8763a, roughness:0.18, transparent:true, opacity:0.85}),
   bottle: new THREE.MeshStandardMaterial({color:0x2e6b4a, roughness:0.16, transparent:true, opacity:0.7}),
-  petal:  new THREE.MeshStandardMaterial({color:0xf1e2e8, roughness:0.8}),
+  petal:  new THREE.MeshStandardMaterial({color:0xa98e96, roughness:0.84}),
   leaf:   new THREE.MeshStandardMaterial({color:0x2c6f45, roughness:0.9}),
   emberMat: new THREE.MeshBasicMaterial({color:0xff6a1e}),
   lampGlow: new THREE.MeshBasicMaterial({color:0xffc98a}),
@@ -895,6 +1116,7 @@ const M = {
 const TPU = {
   rattan: 4.5,   // cane weave, ~2cm strands
   fabric: 3.4,   // heavy linen
+  fabricAccent: 3.4,
   floor:  1.35,  // five planks per tile, ~15cm each
   mat:    2.2,   // coarse woven floor mat
   stone:  0.9,   // roughly metre slabs
@@ -902,9 +1124,54 @@ const TPU = {
   panel:  1.1,   // wall boards
   beam:   1.25,
   thatch: 2.0,
-  pillar: 1.2
+  pillar: 1.2,
+  carvedTeak: 1.2
 };
 Object.keys(TPU).forEach(function(k){ if(M[k]) M[k].userData.tpu = TPU[k]; });
+
+// Commissioned finish textures. Each material above is already complete, so a slow or
+// failed request only leaves the procedural version in place; nothing flashes blank at
+// boot. The repeats match their fallbacks because boxUV() used those repeats when the
+// furniture geometry was created.
+function loadCommissionedTexture(path, rx, ry, ready){
+  new THREE.TextureLoader().load(path, function(t){
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(rx, ry);
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = maxAniso;
+    t.needsUpdate = true;
+    ready(t);
+  }, undefined, function(){
+    if(window.console) console.warn('commissioned texture unavailable:', path);
+  });
+}
+
+loadCommissionedTexture('assets/materials/magnanimis-jacquard.jpg', 2, 2, function(t){
+  M.fabricAccent.map = t;
+  // Printed colour should not become a second embossed pattern. The original linen
+  // remains the quiet micro-weave beneath the custom jacquard.
+  M.fabricAccent.bumpMap = T.fabric;
+  M.fabricAccent.bumpScale = 0.005;
+  M.fabricAccent.needsUpdate = true;
+});
+loadCommissionedTexture('assets/materials/cane-weave.jpg', 3, 3, function(t){
+  M.rattan.map = t;
+  M.rattan.bumpMap = t;
+  M.rattan.bumpScale = 0.007;
+  M.rattan.needsUpdate = true;
+});
+loadCommissionedTexture('assets/materials/carved-teak.jpg', 2, 3, function(t){
+  // The invented wave-and-leaf house pattern belongs to the resort, not to a borrowed
+  // ceremonial tradition. A low bump keeps it satin-finished instead of theatrical.
+  M.pillar.map = t;
+  M.pillar.bumpMap = t;
+  M.pillar.bumpScale = 0.026;
+  M.pillar.needsUpdate = true;
+  M.carvedTeak.map = t;
+  M.carvedTeak.bumpMap = t;
+  M.carvedTeak.bumpScale = 0.024;
+  M.carvedTeak.needsUpdate = true;
+});
 
 // ---------------------------------------------------------------- lights
 const MOON_POS = new THREE.Vector3(26, 96, -300);
@@ -943,6 +1210,14 @@ if(!LOW){
   fireLight.shadow.camera.far = 26;
   fireLight.shadow.bias = -0.006;
 }
+
+// A restrained upward bounce lets the fire belong to the architecture, not just the
+// floor. It is deliberately shadowless and short-range: enough amber to reveal the
+// woven roof and round rafters above the hearth without flattening the blue-hour room.
+const roofFireBounce = new THREE.SpotLight(0xff8c46, 0.50, 9, Math.PI * 0.38, 0.72, 1.7);
+roofFireBounce.position.set(0, 2.15, -1.95);
+roofFireBounce.target.position.set(0, 6.45, -1.65);
+scene.add(roofFireBounce, roofFireBounce.target);
 
 // Every hanging lantern gets a real light. Previously only two of the six did, so
 // the whole west end of the lounge — including the record player, which is the
@@ -1345,7 +1620,7 @@ function landHeight(x, z){
   geo.computeVertexNormals();
 
   const land = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.95, metalness: 0.0
+    vertexColors: true, roughness: 0.95, metalness: 0.0, envMapIntensity: 0.14
   }));
   land.rotation.x = -Math.PI / 2;
   land.position.y = 0;
@@ -1488,6 +1763,17 @@ box(0.4, 5.8, 7.6, M.panel,  9.5, 2.9, 4.6);
 box(0.5, 1.2, 7.6, M.stone, -9.44, 0.6, 4.6);
 box(0.5, 1.2, 7.6, M.stone,  9.44, 0.6, 4.6);
 
+// Exterior wall rhythm. From the lagoon the side walls were uninterrupted dark slabs,
+// which made the pavilion read like an open film set rather than resort architecture.
+// Shallow battens catch only a hair of moonlight, enough to give the shell scale without
+// adding another practical or changing the interior lighting balance.
+[-9.73, 9.73].forEach(function(x){
+  [1.5, 4.6, 7.5].forEach(function(z){
+    box(0.12, 4.25, 0.16, M.beam, x, 3.0, z).castShadow = false;
+  });
+  box(0.12, 0.16, 7.25, M.beam, x, 5.08, 4.6).castShadow = false;
+});
+
 // dark passage into the rest of the resort
 box(2.4, 3.3, 0.3, M.dark, -6.2, 1.65, 8.16);
 
@@ -1496,36 +1782,111 @@ function pillar(x, z){
   cyl(0.42, 0.46, 5.4, 12, M.pillar, x, 2.7, z);
   cyl(0.62, 0.70, 0.35, 12, M.stone, x, 0.17, z);
   box(1.1, 0.3, 1.1, M.beam, x, 5.5, z);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.07, 8, 16), M.bronze);
-  ring.rotation.x = Math.PI / 2; ring.position.set(x, 3.9, z);
-  ring.castShadow = true; scene.add(ring);
+  // Rope lashings, not glowing metal collars. Two imperfect rattan bands catch the
+  // lanterns at the carved capital and make the structure feel tied by hand.
+  for(let i = 0; i < 2; i++){
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.47 + i * 0.018, 0.055, 7, 16), M.rattan);
+    ring.rotation.x = Math.PI / 2;
+    ring.rotation.z = (i ? 0.035 : -0.025);
+    ring.position.set(x, 4.72 + i * 0.12, z);
+    ring.castShadow = true; scene.add(ring);
+  }
   blocker(x, z, 0.62);
 }
 [[-7.7, 6.6], [7.7, 6.6], [-7.7, 1.0], [7.7, 1.0], [-7.7, -4.6], [7.7, -4.6],
  [-4.9, -6.7], [4.9, -6.7]].forEach(function(p){ pillar(p[0], p[1]); });
 
-// beams and rafters
-[6.6, 1.0, -4.6, -6.7].forEach(function(z){ box(19.6, 0.34, 0.34, M.beam, 0, 5.55, z); });
+// Primary plates. The lighter roof lattice below follows the pitch; these are the few
+// heavy members that visibly carry it and keep the pavilion's bays legible.
+[6.6, 1.0, -6.7].forEach(function(z){ box(19.6, 0.34, 0.34, M.beam, 0, 5.55, z); });
 box(0.34, 0.34, 16, M.beam, -7.7, 5.55, 0.4);
 box(0.34, 0.34, 16, M.beam,  7.7, 5.55, 0.4);
-for(let z = -7.4; z <= 8.6; z += 1.15){
-  box(19.6, 0.14, 0.14, M.beam, 0, 5.86, z).castShadow = false;
-}
 
-// thatch roof: two slopes meeting at a ridge
+// Tiki roof: its ridge runs parallel to the lagoon opening, so the player looks out
+// from beneath a real horizontal thatch eave. The earlier ridge ran front-to-back: that
+// made the opening a gable end, then incorrectly decorated that gable as an eave. The
+// supplied frame is structurally clear—front eave, rafters rising inward, warm ridge.
 (function(){
-  const rise = 1.9, run = 10.4, len = 17.4;
-  const slope = Math.sqrt(rise * rise + run * run);
-  const ang = Math.atan2(rise, run);
-  const right = box(slope, 0.26, len, M.thatch, run / 2, 5.62 + rise / 2, 0.6);
-  right.rotation.z = -ang;
-  const left = box(slope, 0.26, len, M.thatch, -run / 2, 5.62 + rise / 2, 0.6);
-  left.rotation.z = ang;
-  box(21.4, 0.34, 0.5, M.beam, 0, 5.42, -8.1).castShadow = false;
-  box(0.5, 0.34, 17.4, M.beam, -10.3, 5.42, 0.6).castShadow = false;
-  box(0.5, 0.34, 17.4, M.beam,  10.3, 5.42, 0.6).castShadow = false;
-  // ridge
-  box(0.5, 0.5, 17.6, M.thatch, 0, 7.6, 0.6).castShadow = false;
+  const width = 20.8, halfDepth = 8.7, centreZ = 0.6;
+  const frontZ = centreZ - halfDepth, rearZ = centreZ + halfDepth;
+  const rise = 2.45, eaveY = 5.53, ridgeY = eaveY + rise;
+  const slope = Math.sqrt(rise * rise + halfDepth * halfDepth);
+  const ang = Math.atan2(rise, halfDepth);
+  const UP = new THREE.Vector3(0, 1, 0);
+
+  function roofPole(a, b, r, mat, segments){
+    const A = new THREE.Vector3(a[0], a[1], a[2]);
+    const B = new THREE.Vector3(b[0], b[1], b[2]);
+    const dir = new THREE.Vector3().subVectors(B, A);
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(r * 0.90, r * 1.05, dir.length(), segments || 8), mat
+    );
+    pole.position.addVectors(A, B).multiplyScalar(0.5);
+    pole.quaternion.setFromUnitVectors(UP, dir.normalize());
+    pole.castShadow = true; pole.receiveShadow = true;
+    scene.add(pole);
+    return pole;
+  }
+
+  // Continuous weather skin, now pitched front-to-back instead of side-to-side.
+  const front = box(width, 0.26, slope, M.thatch, 0, eaveY + rise / 2, centreZ - halfDepth / 2);
+  front.rotation.x = -ang;
+  const rear = box(width, 0.26, slope, M.thatch, 0, eaveY + rise / 2, centreZ + halfDepth / 2);
+  rear.rotation.x = ang;
+
+  // Main rafters run away from the lagoon eave into the ridge, exactly as the eye reads
+  // them in the reference. They stay sparse enough for the finer cane rhythm to show.
+  let ri = 0;
+  for(let x = -9.7; x <= 9.7; x += 1.38, ri++){
+    const rr = 0.090 + (ri % 4) * 0.007;
+    roofPole([x, eaveY - 0.24, frontZ], [x, ridgeY - 0.24, centreZ], rr, M.beam, 8);
+    roofPole([x, ridgeY - 0.24, centreZ], [x, eaveY - 0.24, rearZ], rr * 0.96, M.beam, 8);
+  }
+
+  // Thin bamboo purlins parallel the eave across each slope. Their close rhythm reads
+  // woven; the previous metre-wide square grid read as a contemporary pergola.
+  for(let i = 1; i < 15; i++){
+    const t = i / 15;
+    const y = eaveY + rise * t - 0.34;
+    const pr = 0.027 + (i % 4) * 0.002;
+    const fp = roofPole([-10.12, y, THREE.MathUtils.lerp(frontZ, centreZ, t)],
+      [10.12, y, THREE.MathUtils.lerp(frontZ, centreZ, t)], pr, M.rattan, 7);
+    const rp = roofPole([-10.12, y, THREE.MathUtils.lerp(rearZ, centreZ, t)],
+      [10.12, y, THREE.MathUtils.lerp(rearZ, centreZ, t)], pr, M.rattan, 7);
+    fp.castShadow = false; rp.castShadow = false;
+  }
+
+  // Hand-hewn eave/ridge logs and the two gable-edge rafters.
+  roofPole([-10.48, eaveY - 0.10, frontZ], [10.48, eaveY - 0.10, frontZ], 0.27, M.beam, 10);
+  roofPole([-10.48, eaveY - 0.10, rearZ],  [10.48, eaveY - 0.10, rearZ],  0.23, M.beam, 9);
+  roofPole([-10.48, ridgeY - 0.20, centreZ], [10.48, ridgeY - 0.20, centreZ], 0.25, M.beam, 9);
+  [-10.24, 10.24].forEach(function(x){
+    roofPole([x, eaveY, frontZ], [x, ridgeY, centreZ], 0.18, M.beam, 9);
+    roofPole([x, ridgeY, centreZ], [x, eaveY, rearZ], 0.18, M.beam, 9);
+  });
+
+  // A nearly continuous but irregular palm-thatch edge softens the lagoon opening.
+  const fringeCount = 180;
+  const fringeGeo = new THREE.BufferGeometry();
+  fringeGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    -0.035, 0, 0,  0.035, 0, 0,  0, -1, 0
+  ], 3));
+  fringeGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0,1, 1,1, 0.5,0], 2));
+  fringeGeo.computeVertexNormals();
+  const fringeMat = new THREE.MeshStandardMaterial({color:0x24170d, roughness:1, side:THREE.DoubleSide});
+  const fringe = new THREE.InstancedMesh(fringeGeo, fringeMat, fringeCount);
+  const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  for(let i = 0; i < fringeCount; i++){
+    const t = i / (fringeCount - 1);
+    const fl = 0.08 + ((i * 37) % 23) / 23 * 0.22;
+    q.setFromAxisAngle(new THREE.Vector3(0,0,1), ((i * 19) % 9 - 4) * 0.008);
+    sc.set(1.05 + (i % 5) * 0.08, fl, 1);
+    pos.set(-10.18 + t * 20.36, eaveY - 0.25 + (i % 4) * 0.006, frontZ - 0.08);
+    mx.compose(pos, q, sc); fringe.setMatrixAt(i, mx);
+  }
+  fringe.instanceMatrix.needsUpdate = true;
+  fringe.castShadow = false; fringe.receiveShadow = false;
+  scene.add(fringe);
 })();
 
 // hanging lanterns
@@ -1538,7 +1899,7 @@ const shaftMat = new THREE.ShaderMaterial({
   blending: THREE.AdditiveBlending,
   uniforms: {
     uColor:    {value: new THREE.Color(0xffb877)},
-    uStrength: {value: 0.34}
+    uStrength: {value: 0.16}
   },
   vertexShader: [
     'varying float vH;',
@@ -1573,11 +1934,72 @@ const shaftMat = new THREE.ShaderMaterial({
   ].join('\n')
 });
 const SHAFTS = [];
+const lanternDiffuserMat = new THREE.MeshBasicMaterial({
+  color:0xff8a3a, transparent:true, opacity:0.18, depthWrite:false,
+  blending:THREE.NormalBlending
+});
+
+// Open woven cage from crossed cane lengths. Light now escapes between real gaps; the
+// previous fixture was an opaque orange cylinder, which read as a placeholder drum.
+function makeWovenShade(scale){
+  const g = new THREE.Group();
+  const s = scale || 1;
+  const waistRadius = 0.30 * s, neckRadius = 0.17 * s, halfH = 0.36 * s;
+  const UP = new THREE.Vector3(0, 1, 0);
+  function caneBetween(A, B, r){
+    const dir = new THREE.Vector3().subVectors(B, A);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.06, dir.length(), 6), M.cane);
+    m.position.addVectors(A, B).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(UP, dir.normalize());
+    m.castShadow = true; g.add(m);
+  }
+
+  const diffuser = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.105 * s, 0.14 * s, 0.48 * s, 12), lanternDiffuserMat
+  );
+  diffuser.castShadow = false; g.add(diffuser);
+
+  [[-halfH, neckRadius], [0, waistRadius], [halfH, neckRadius]].forEach(function(spec){
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(spec[1], 0.022 * s, 6, 18), M.cane);
+    ring.rotation.x = Math.PI / 2; ring.position.y = spec[0]; ring.castShadow = true; g.add(ring);
+  });
+  // Two opposing weaves bow out around the central ring, giving the shade a hand-made
+  // basket profile and a stronger silhouette against its own amber core.
+  for(let i = 0; i < 8; i++){
+    const a = i / 8 * Math.PI * 2;
+    const d = 0.34;
+    caneBetween(
+      new THREE.Vector3(Math.cos(a - d) * neckRadius, -halfH, Math.sin(a - d) * neckRadius),
+      new THREE.Vector3(Math.cos(a + d) * waistRadius, 0, Math.sin(a + d) * waistRadius),
+      0.0105 * s
+    );
+    caneBetween(
+      new THREE.Vector3(Math.cos(a + d) * waistRadius, 0, Math.sin(a + d) * waistRadius),
+      new THREE.Vector3(Math.cos(a - d) * neckRadius, halfH, Math.sin(a - d) * neckRadius),
+      0.0105 * s
+    );
+    caneBetween(
+      new THREE.Vector3(Math.cos(a + d) * neckRadius, -halfH, Math.sin(a + d) * neckRadius),
+      new THREE.Vector3(Math.cos(a - d) * waistRadius, 0, Math.sin(a - d) * waistRadius),
+      0.0105 * s
+    );
+    caneBetween(
+      new THREE.Vector3(Math.cos(a - d) * waistRadius, 0, Math.sin(a - d) * waistRadius),
+      new THREE.Vector3(Math.cos(a + d) * neckRadius, halfH, Math.sin(a + d) * neckRadius),
+      0.0105 * s
+    );
+  }
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.105 * s, 0.15 * s, 0.075 * s, 10), M.beam);
+  top.position.y = halfH + 0.035 * s; g.add(top);
+  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.145 * s, 0.085 * s, 0.07 * s, 10), M.beam);
+  bottom.position.y = -halfH - 0.033 * s; g.add(bottom);
+  return g;
+}
 
 function lantern(x, y, z, intensity, range){
   cyl(0.02, 0.02, 5.6 - y, 6, M.dark, x, y + (5.6 - y) / 2, z).castShadow = false;
-  cyl(0.24, 0.30, 0.62, 10, M.rattan, x, y, z);
-  cyl(0.16, 0.20, 0.46, 8, M.lampGlow, x, y, z).castShadow = false;
+  const shade = makeWovenShade(1);
+  shade.position.set(x, y, z); scene.add(shade);
   // the light sits just below the shade so the glow reads as coming from inside it
   const L = lanternLight(x, y - 0.18, z, intensity === undefined ? 0.95 : intensity, range || 11);
   // haze cone: apex just under the shade, spreading to the floor
@@ -1655,7 +2077,7 @@ function sofa(x, z, ry){
   add(0.22, 0.5, 1.25, M.rattan, -1.44, 0.75, 0);
   add(0.22, 0.5, 1.25, M.rattan, 1.44, 0.75, 0);
   for(let i = -1; i <= 1; i++){
-    const p = add(0.62, 0.22, 0.5, M.fabric, i * 0.95, 0.82, 0.36);
+    const p = add(0.62, 0.22, 0.5, i === 0 ? M.fabricAccent : M.fabric, i * 0.95, 0.82, 0.36);
     p.rotation.x = -0.35; p.rotation.z = rnd(-0.1, 0.1);
   }
   for(let i = 0; i < 4; i++){
@@ -1685,22 +2107,29 @@ sofa( 0.0,  2.4,  0);
 (function(){
   box(2.3, 0.12, 1.2, M.floor, 0, 0.52, 0.5);
   box(2.0, 0.42, 0.95, M.rattan, 0, 0.28, 0.5);
-  const glass = cyl(0.11, 0.075, 0.34, 12, M.glass, -0.5, 0.75, 0.5);
-  const drink = cyl(0.095, 0.065, 0.24, 12, M.liquid, -0.5, 0.70, 0.5);
+  // A composed foreground still life: drink, low lamp, orchid. These existed as tiny
+  // pale shapes along the table centreline; moving them toward the camera-facing edge
+  // and giving the lamp a restrained practical creates the focal cue in the key art.
+  const glass = cyl(0.13, 0.085, 0.38, 12, M.glass, -0.62, 0.78, 0.78);
+  const drink = cyl(0.112, 0.075, 0.27, 12, M.liquid, -0.62, 0.73, 0.78);
   drink.castShadow = false;
+  cyl(0.17, 0.17, 0.05, 12, M.bronze, 0.02, 0.62, 0.78);
+  cyl(0.15, 0.19, 0.34, 10, M.rattan, 0.02, 0.82, 0.78);
+  cyl(0.085, 0.12, 0.25, 8, M.lampGlow, 0.02, 0.82, 0.78).castShadow = false;
+  lanternLight(0.02, 0.88, 0.78, 0.42, 3.8);
   // orchid
-  const bowl = cyl(0.16, 0.12, 0.12, 10, M.stone, 0.55, 0.64, 0.5);
+  const bowl = cyl(0.19, 0.14, 0.14, 10, M.stone, 0.62, 0.66, 0.72);
   for(let i = 0; i < 5; i++){
     const a = i / 5 * Math.PI * 2;
-    const petal = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), M.petal);
-    petal.position.set(0.55 + Math.cos(a) * 0.1, 0.78, 0.5 + Math.sin(a) * 0.1);
+    const petal = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M.petal);
+    petal.position.set(0.62 + Math.cos(a) * 0.12, 0.86, 0.72 + Math.sin(a) * 0.12);
     petal.scale.set(1, 0.4, 1.5);
     petal.rotation.y = a;
     scene.add(petal);
   }
-  const stem = cyl(0.015, 0.015, 0.22, 5, M.leaf, 0.55, 0.72, 0.5);
+  const stem = cyl(0.017, 0.017, 0.27, 5, M.leaf, 0.62, 0.76, 0.72);
   stem.castShadow = false;
-  cyl(0.2, 0.2, 0.05, 12, M.bronze, 0.05, 0.6, 0.72);
+  cyl(0.18, 0.18, 0.045, 12, M.bronze, 0.38, 0.62, 0.84);
   void glass; void drink; void bowl; void stem;
   blocker(0, 0.5, 1.2);
 })();
@@ -1716,16 +2145,32 @@ const tonearm = new THREE.Group();
   for(let i = 0; i < 4; i++){
     cyl(0.05, 0.05, 0.14, 6, M.dark, -4.4 + (i < 2 ? -1.3 : 1.3), 0.07, 7.6 + (i % 2 ? -0.3 : 0.3));
   }
-  // leaning LPs — a real object you can flip through, not set dressing
+  // Period sleeves facing into the room. The original boxes were edge-on to the player,
+  // so Garmus's defining collection read as five black lines on the console.
   const stack = new THREE.Group();
   stack.position.set(-2.5, 0.42, 7.5);
   scene.add(stack);
+  const sleeveMats = [0x45261f, 0x6d4b2c, 0x274c4b, 0x80612b, 0x292b2a].map(function(color){
+    return new THREE.MeshStandardMaterial({color:color, roughness:0.78});
+  });
   for(let i = 0; i < 5; i++){
-    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.62, 0.62), M.dark);
-    lp.position.set(i * 0.05, 0, 0);
-    lp.rotation.z = 0.16;
+    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.025), sleeveMats[i]);
+    lp.position.set(i * 0.075, i * 0.012, i * -0.028);
+    lp.rotation.z = 0.10 + i * 0.012;
     lp.castShadow = true; lp.receiveShadow = true;
     stack.add(lp);
+    if(i === 4){
+      const mark = new THREE.Mesh(
+        new THREE.CircleGeometry(0.105, 18),
+        new THREE.MeshStandardMaterial({color:0xb8a987, roughness:0.86, side:THREE.DoubleSide})
+      );
+      mark.position.set(lp.position.x, lp.position.y, lp.position.z - 0.014);
+      mark.rotation.y = Math.PI;
+      stack.add(mark);
+      const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.055, 0.018), M.brass);
+      plaque.position.set(lp.position.x, lp.position.y - 0.22, lp.position.z - 0.018);
+      stack.add(plaque);
+    }
   }
   // Generous invisible hit volume. The sleeves are small and low, so aiming at the
   // real geometry meant looking down past 30 degrees before the prompt appeared.
@@ -1754,7 +2199,9 @@ const tonearm = new THREE.Group();
   const label = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.024, 20), M.brass);
   const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.07, 6), M.brass);
   spindle.position.y = 0.03;
-  platter.add(disc, label, spindle);
+  const platterRim = new THREE.Mesh(new THREE.TorusGeometry(0.385, 0.012, 8, 32), M.brass);
+  platterRim.rotation.x = Math.PI / 2; platterRim.position.y = 0.015;
+  platter.add(disc, label, spindle, platterRim);
   rp.add(platter);
 
   tonearm.position.set(0.44, 0.19, 0.3);
@@ -1770,9 +2217,192 @@ const tonearm = new THREE.Group();
   const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), M.brass);
   knob.position.set(-0.5, 0.18, 0.38); rp.add(knob);
 
+  // The teaser's intimate close-up pairs lacquered vinyl with an orchid cocktail. This
+  // small house drink gives the record ritual a human trace before any guest appears.
+  cyl(0.16, 0.16, 0.025, 18, M.brass, -3.47, 1.11, 7.46).castShadow = false;
+  cyl(0.018, 0.022, 0.25, 8, M.glass, -3.47, 1.25, 7.46).castShadow = false;
+  cyl(0.20, 0.065, 0.15, 18, M.glass, -3.47, 1.43, 7.46).castShadow = false;
+  cyl(0.17, 0.055, 0.035, 18, M.liquid, -3.47, 1.47, 7.46).castShadow = false;
+  const garnishStem = cyl(0.009, 0.009, 0.22, 5, M.leaf, -3.37, 1.51, 7.43);
+  garnishStem.rotation.z = -0.72; garnishStem.castShadow = false;
+  for(let i = 0; i < 4; i++){
+    const a = i / 4 * Math.PI * 2;
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.045, 7, 5), M.petal);
+    p.position.set(-3.31 + Math.cos(a) * 0.045, 1.61, 7.39 + Math.sin(a) * 0.045);
+    p.scale.set(1.2, 0.38, 1.0); p.rotation.y = a; scene.add(p);
+  }
+
   blocker(-4.4, 7.6, 1.6);
   interactive(rp, 'Drop the needle', function(){ toggleRecord(); });
   rp.userData.isRecord = true;
+})();
+
+// ---------------------------------------------------------------- archive photographs
+// One source of truth joins each image to its lore, fallback, prompt and physical place.
+// The old wall kept those in separate arrays, so four of six captions could describe the
+// wrong photograph. Distribution also makes the room itself the archive: Garmus belongs
+// with his records, the pool and water system live along the service route, and the jetty
+// image waits at the lagoon threshold.
+const ARCHIVE_ENTRIES = [
+  {
+    id:'garmus', src:'assets/archive/garmus-campoza-portrait.jpg', fallback:1,
+    title:'Garmus Campoza.', meta:'Founder of the Magnanimis · declared dead in absentia',
+    prompt:'Examine the man in white', alt:'1965 portrait of Garmus Campoza in a white dinner jacket',
+    pos:[-3.55,3.34,8.10], yaw:Math.PI, size:[0.82,1.03]
+  },
+  {
+    id:'opening', src:'assets/archive/magnanimis-opening-1965.jpg', fallback:0,
+    title:'Garmus at the Magnanimis, c. 1965.', meta:'They came for the glamour and stayed for the man',
+    prompt:'Examine the gathering', alt:'Garmus Campoza addressing guests in the Magnanimis lounge',
+    pos:[6.30,3.25,8.10], yaw:Math.PI, size:[0.88,1.10]
+  },
+  {
+    id:'lounge', src:'assets/archive/original-lounge-1965.jpg', fallback:4,
+    title:'The lounge, c. 1965.', meta:'Garmus’s records remain beside the original turntable',
+    prompt:'Examine the lounge photograph', alt:'The Magnanimis lounge and record cabinet in 1965',
+    pos:[9.21,2.90,4.05], yaw:-Math.PI/2, size:[0.78,0.98]
+  },
+  {
+    id:'pool', src:'assets/archive/spring-pool-1965.jpg', fallback:2,
+    title:'The spring-fed pool, c. 1965.', meta:'Decades later, a guest is found drowned here',
+    prompt:'Examine the pool photograph', alt:'The spring-fed Magnanimis pool in 1965',
+    pos:[-9.21,2.90,3.95], yaw:Math.PI/2, size:[0.78,0.98]
+  },
+  {
+    id:'water', src:'assets/archive/freshwater-lines-1965.jpg', fallback:5,
+    title:'Garmus’s original water system.', meta:'The islanders still maintain it with ritual precision',
+    prompt:'Examine the service photograph', alt:'Garmus and an engineer inspecting the resort water system',
+    pos:[-7.70,2.34,-4.11], yaw:0, size:[0.64,0.80], hit:[0.92,1.16]
+  },
+  {
+    id:'jetty', src:'assets/archive/arrival-jetty-1965.jpg', fallback:3,
+    title:'Arrivals at the jetty, c. 1965.', meta:'No tower. No cable. Nothing — even then',
+    prompt:'Examine the jetty photograph', alt:'Garmus welcoming guests at the Magnanimis jetty',
+    pos:[7.70,2.34,-4.11], yaw:0, size:[0.64,0.80], hit:[0.92,1.16]
+  }
+];
+const ARCHIVE_SEEN = new Set();
+function archivePhotoTexture(variant){
+  const c = document.createElement('canvas');
+  c.width = 240; c.height = 300;
+  const x = c.getContext('2d');
+  x.fillStyle = '#d8d0bb'; x.fillRect(0, 0, c.width, c.height);
+
+  const sky = x.createLinearGradient(0, 0, 0, 235);
+  sky.addColorStop(0, '#c9c7bb'); sky.addColorStop(0.52, '#85877f'); sky.addColorStop(1, '#3c403d');
+  x.fillStyle = sky; x.fillRect(12, 12, 216, 232);
+  x.fillStyle = '#2f3432'; x.fillRect(12, 172, 216, 72);
+  x.strokeStyle = 'rgba(220,218,203,.40)'; x.lineWidth = 1;
+  for(let y = 182; y < 238; y += 8){ x.beginPath(); x.moveTo(16, y); x.lineTo(224, y + (variant % 2)); x.stroke(); }
+
+  x.fillStyle = '#202523';
+  if(variant === 0){
+    // Pavilion opening day: roof, posts and a small gathering.
+    x.beginPath(); x.moveTo(38, 118); x.lineTo(120, 66); x.lineTo(204, 118); x.closePath(); x.fill();
+    x.fillRect(48, 116, 10, 68); x.fillRect(182, 116, 10, 68);
+    [88,118,148].forEach(function(px){ x.beginPath(); x.arc(px, 151, 7, 0, Math.PI * 2); x.fill(); x.fillRect(px - 5, 158, 10, 25); });
+  } else if(variant === 1){
+    // A formal founder portrait, still anonymous until the caption is read.
+    x.fillStyle = '#555952'; x.fillRect(50, 48, 140, 136);
+    x.fillStyle = '#1c211f'; x.beginPath(); x.arc(120, 91, 29, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.moveTo(72, 184); x.quadraticCurveTo(78, 121, 120, 120); x.quadraticCurveTo(162, 121, 168, 184); x.closePath(); x.fill();
+  } else if(variant === 2){
+    // The spring-fed pool before the lounge terrace enclosed it.
+    x.fillStyle = '#666a63'; x.beginPath(); x.ellipse(122, 166, 78, 39, -0.08, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#c4c2b4'; x.lineWidth = 5; x.beginPath(); x.ellipse(122, 166, 62, 27, -0.08, 0, Math.PI * 2); x.stroke();
+    x.fillStyle = '#242a27'; x.fillRect(41, 75, 8, 100); x.beginPath(); x.moveTo(45, 78); x.lineTo(78, 48); x.lineTo(60, 89); x.fill();
+  } else if(variant === 3){
+    // Jetty and surrender point.
+    x.fillStyle = '#6d7068'; x.beginPath(); x.moveTo(66, 244); x.lineTo(108, 145); x.lineTo(134, 145); x.lineTo(178, 244); x.closePath(); x.fill();
+    x.fillStyle = '#202523'; [78,103,143,167].forEach(function(px){ x.fillRect(px, 159, 5, 86); });
+    x.fillRect(38, 58, 7, 122); x.beginPath(); x.moveTo(41, 60); x.lineTo(18, 88); x.lineTo(61, 77); x.fill();
+  } else if(variant === 4){
+    // The original lounge, prepared for guests rather than weathered by time.
+    x.fillStyle = '#555952'; x.fillRect(28, 103, 184, 81);
+    x.fillStyle = '#202523'; x.fillRect(42, 95, 8, 89); x.fillRect(190, 95, 8, 89);
+    x.beginPath(); x.arc(120, 160, 24, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#b8b7aa'; x.lineWidth = 3; x.beginPath(); x.arc(120, 155, 16, Math.PI, 0); x.stroke();
+  } else {
+    // Service photograph: three freshwater lines vanish under the terrace.
+    x.fillStyle = '#595d57'; x.fillRect(24, 62, 192, 126);
+    ['#252a27','#343936','#202522'].forEach(function(col, i){
+      x.strokeStyle = col; x.lineWidth = 11; x.beginPath(); x.moveTo(32, 91 + i * 34); x.lineTo(205, 178 - i * 18); x.stroke();
+    });
+    x.strokeStyle = '#bdbbad'; x.lineWidth = 2; x.strokeRect(24, 62, 192, 126);
+  }
+
+  // Warm paper border, typed year and deterministic dust/grain. A private seed keeps
+  // this texture work from changing the scene's existing procedural placements.
+  x.fillStyle = '#ddd5bf'; x.fillRect(12, 244, 216, 44);
+  x.fillStyle = '#383b37'; x.font = '12px monospace'; x.textAlign = 'center';
+  x.fillText('THE MAGNANIMIS  ·  1965', 120, 270);
+  let seed = 941 + variant * 101;
+  for(let i = 0; i < 720; i++){
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const px = seed % 240; seed = (seed * 1664525 + 1013904223) >>> 0;
+    const py = seed % 288;
+    x.fillStyle = (seed & 1) ? 'rgba(20,18,14,.055)' : 'rgba(255,250,230,.05)';
+    x.fillRect(px, py, 1, 1);
+  }
+  const vignette = x.createRadialGradient(120, 140, 60, 120, 140, 175);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(25,20,14,.20)');
+  x.fillStyle = vignette; x.fillRect(0, 0, 240, 288);
+
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = maxAniso;
+  return t;
+}
+
+(function(){
+  const loader = new THREE.TextureLoader();
+  const invisible = new THREE.MeshBasicMaterial({visible:false});
+
+  ARCHIVE_ENTRIES.forEach(function(entry){
+    const g = new THREE.Group();
+    g.position.fromArray(entry.pos);
+    g.rotation.y = entry.yaw;
+
+    const fw = entry.size[0], fh = entry.size[1];
+    const frame = new THREE.Mesh(roundedBoxGeo(fw, fh, 0.075, M.floor), M.floor);
+    frame.castShadow = true; frame.receiveShadow = true;
+    const liner = new THREE.Mesh(new THREE.PlaneGeometry(fw - 0.08, fh - 0.08), M.brass);
+    liner.position.z = 0.041;
+
+    const photoMaterial = new THREE.MeshStandardMaterial({
+      map:archivePhotoTexture(entry.fallback), color:0xd0c8ba, roughness:0.91, side:THREE.DoubleSide
+    });
+    const photo = new THREE.Mesh(new THREE.PlaneGeometry(fw - 0.15, fh - 0.15), photoMaterial);
+    photo.position.z = 0.046;
+
+    const hitSize = entry.hit || [1.10,1.35];
+    const grab = new THREE.Mesh(new THREE.BoxGeometry(hitSize[0], hitSize[1], 0.30), invisible);
+    grab.position.z = 0.05;
+    g.add(frame, liner, photo, grab);
+    scene.add(g);
+
+    loader.load(entry.src, function(t){
+      t.encoding = THREE.sRGBEncoding;
+      t.anisotropy = maxAniso;
+      t.needsUpdate = true;
+      const fallback = photoMaterial.map;
+      photoMaterial.map = t;
+      photoMaterial.needsUpdate = true;
+      if(fallback && fallback.dispose) fallback.dispose();
+    }, undefined, function(){
+      if(window.console) console.warn('archive photograph unavailable:', entry.src);
+    });
+
+    interactive(g, entry.prompt, function(){ openArchive(entry); });
+  });
+
+  // Opening-era social history gets the one formal picture light. The other frames sit
+  // in existing pools of practical light, so their discovery feels tied to place.
+  const arm = cyl(0.022, 0.022, 0.22, 6, M.brass, 6.30, 3.99, 7.96);
+  arm.rotation.x = Math.PI / 2;
+  box(0.74, 0.09, 0.13, M.brass, 6.30, 3.91, 7.88).castShadow = false;
+  box(0.62, 0.02, 0.06, M.lampGlow, 6.30, 3.86, 7.82).castShadow = false;
+  lanternLight(6.30, 3.78, 7.78, 0.18, 2.8);
 })();
 
 // ---------------------------------------------------------------- bar
@@ -1811,29 +2441,45 @@ const tonearm = new THREE.Group();
   frame.position.set(2.4, 1.55, 8.2);
   const handle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), M.brass);
   handle.position.set(1.9, 1.45, 8.04);
-  d.add(frame, leaf, handle);
+  // Shallow carved panels and a proper brass escutcheon make this the manager's door,
+  // not a blank primitive. The warm hairline beneath it promises an occupied interior
+  // without opening the lounge-only slice into another room.
+  const upperPanel = new THREE.Mesh(roundedBoxGeo(1.05, 0.96, 0.035, M.carvedTeak), M.carvedTeak);
+  upperPanel.position.set(2.4, 2.16, 8.045);
+  const lowerPanel = new THREE.Mesh(roundedBoxGeo(1.05, 0.88, 0.035, M.carvedTeak), M.carvedTeak);
+  lowerPanel.position.set(2.4, 0.84, 8.045);
+  const escutcheon = new THREE.Mesh(roundedBoxGeo(0.13, 0.30, 0.035, M.brass), M.brass);
+  escutcheon.position.set(1.9, 1.45, 7.985);
+  const seamMat = new THREE.MeshBasicMaterial({color:0x8e471f, transparent:true, opacity:0.38});
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.026, 0.025), seamMat);
+  seam.position.set(2.4, 0.055, 8.01);
+  d.add(frame, leaf, upperPanel, lowerPanel, escutcheon, handle, seam);
   scene.add(d);
 
   // A brass sconce beside the door. Without it this whole corner fell to near-black and
   // the door read as a hole in the wall — bad for the one object that is openly telling
   // you the story continues elsewhere. A wall lamp is also exactly what a torchlit
   // resort would put next to a door it keeps locked.
-  // Same construction as the hanging lanterns, which already read well: a closed rattan
-  // shade with a closed glow cylinder just inside it. Open-ended geometry let the bulb
-  // show through as a bright quad and looked like a rendering fault.
+  // The wall light repeats the hanging lanterns' crossed-cane construction at a smaller
+  // scale, giving the manager's door a coherent period fixture instead of a glowing drum.
   const sconce = new THREE.Group();
   sconce.position.set(3.66, 2.20, 8.03);
   const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 6), M.brass);
   arm.rotation.x = Math.PI / 2;
   arm.position.set(0, 0.13, -0.10);
-  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.20, 0.27, 12), M.rattan);
-  const glow  = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.155, 0.21, 10), M.lampGlow);
-  sconce.add(arm, shade, glow);
+  const shade = makeWovenShade(0.68);
+  sconce.add(arm, shade);
   scene.add(sconce);
   lanternLight(3.66, 2.02, 7.86, 0.80, 4.8);
 
   interactive(d, 'Try the door', function(){
-    note('Locked. The manager keeps the key.');
+    if(LORE.photos && LORE.record && LORE.valve){
+      note('The repaired line continues through the wall.', 'beyond it: the manager\'s office · the island\'s only satellite phone');
+    } else if(LORE.valve){
+      note('The repaired line continues through the wall.', 'the lock does not move');
+    } else {
+      note('Locked. The manager keeps the key.');
+    }
     Sound.doorRattle();
   });
 })();
@@ -1842,6 +2488,7 @@ const tonearm = new THREE.Group();
 let valveOpen = false;
 const valveWheel = new THREE.Group();
 const valveSpin = new THREE.Group();
+const gaugeNeedle = new THREE.Group();
 const fountainWater = new THREE.Group();
 (function(){
   // Pipework, run point-to-point with fittings.
@@ -1896,10 +2543,31 @@ const fountainWater = new THREE.Group();
   // gauge, turned to face anyone standing at the valve
   const gauge = cyl(0.14, 0.14, 0.06, 14, M.brass, -8.94, 2.1, -5.0);
   gauge.rotation.z = Math.PI / 2;
-  const face = new THREE.Mesh(new THREE.CircleGeometry(0.11, 16), M.lampGlow);
-  face.position.set(-8.86, 2.1, -5.0);
-  face.rotation.y = Math.PI / 2;
-  scene.add(face);
+  const dial = new THREE.Group();
+  dial.position.set(-8.86, 2.1, -5.0);
+  dial.rotation.y = Math.PI / 2;
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(0.11, 28),
+    new THREE.MeshStandardMaterial({color:0x91866e, roughness:0.78})
+  );
+  dial.add(face);
+  for(let i = 0; i < 9; i++){
+    const a = -2.2 + i / 8 * 1.85;
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.006, i % 4 === 0 ? 0.024 : 0.016, 0.004), M.dark);
+    tick.position.set(Math.cos(a) * 0.082, Math.sin(a) * 0.082, 0.004);
+    tick.rotation.z = a - Math.PI / 2;
+    dial.add(tick);
+  }
+  const needle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.073, 0.006), M.dark);
+  needle.position.y = 0.034;
+  gaugeNeedle.add(needle);
+  const needleHub = new THREE.Mesh(new THREE.CircleGeometry(0.014, 12), M.brass);
+  needleHub.position.z = 0.008;
+  gaugeNeedle.add(needleHub);
+  gaugeNeedle.rotation.z = 0.65;
+  gaugeNeedle.position.z = 0.009;
+  dial.add(gaugeNeedle);
+  scene.add(dial);
 
   // the wheel itself — mounted on the riser, facing into the room
   valveWheel.position.set(-8.78, 1.15, -5.0);
@@ -1955,16 +2623,35 @@ const fountainWater = new THREE.Group();
 // existing call is unchanged. The island scatter below passes landHeight() instead.
 function palm(x, z, h, y0){
   const base = (y0 === undefined) ? -0.3 : y0;
-  cyl(0.16, 0.3, h, 7, M.dark, x, base + h / 2, z).rotation.z = rnd(-0.12, 0.12);
-  for(let i = 0; i < 7; i++){
-    const f = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 0.95), M.frond);
-    f.position.set(x, base + h - 0.05, z);
-    f.rotation.y = i / 7 * Math.PI * 2 + rnd(-0.2, 0.2);
-    f.rotation.z = rnd(-0.55, -0.15);
-    f.translateX(1.5);
-    f.castShadow = false;
-    scene.add(f);
-  }
+  // Trunk and crown share a group pivoted at the root. Previously only the trunk leaned,
+  // leaving the crown hovering over its old vertical axis. Two asymmetric tiers make a
+  // wind-shaped canopy instead of seven identical cards arranged like a ceiling fan.
+  const g = new THREE.Group();
+  g.position.set(x, base, z);
+  g.rotation.z = rnd(-0.12, 0.12);
+  g.rotation.x = rnd(-0.035, 0.035);
+  g.rotation.y = rnd(0, Math.PI * 2);
+
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.30, h, 7), M.dark);
+  trunk.position.y = h / 2; trunk.castShadow = true; trunk.receiveShadow = true;
+  g.add(trunk);
+
+  const tiers = LOW
+    ? [{n:5, len:3.15, y:-0.08, droop:[-0.62,-0.28]}, {n:3, len:2.35, y:0.12, droop:[-0.38,-0.12]}]
+    : [{n:7, len:3.30, y:-0.10, droop:[-0.66,-0.26]}, {n:4, len:2.45, y:0.15, droop:[-0.36,-0.08]}];
+  tiers.forEach(function(tier, ti){
+    for(let i = 0; i < tier.n; i++){
+      const len = tier.len * rnd(0.88, 1.12);
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(len, len * 0.30), M.frond);
+      f.position.set(0, h + tier.y, 0);
+      f.rotation.y = (i / tier.n) * Math.PI * 2 + ti * 0.42 + rnd(-0.18, 0.18);
+      f.rotation.z = rnd(tier.droop[0], tier.droop[1]);
+      f.translateX(len * 0.46);
+      f.castShadow = false;
+      g.add(f);
+    }
+  });
+  scene.add(g);
 }
 // A palm needs ground. Half of these stood out at z = -19 to -27, well past the terrace
 // edge at z = -14.3, with the trunk base at y = -0.3 — rooted in open water with nothing
@@ -2010,7 +2697,7 @@ function palmIslet(x, z, r){
 function pot(x, z){
   cyl(0.34, 0.26, 0.5, 10, M.stone, x, 0.25, z);
   for(let i = 0; i < 7; i++){
-    const l = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.5), M.frond);
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.5), M.broadLeaf);
     l.position.set(x, 0.6, z);
     l.rotation.y = i / 7 * Math.PI * 2;
     l.rotation.z = rnd(-0.5, -0.1);
@@ -2036,13 +2723,13 @@ pot(-8.6, 2.6); pot(8.6, 2.6); pot(-8.6, 7.0); pot(8.9, 5.4);
 function frondCluster(x, z, h, spread){
   const potR = 0.34 * Math.max(1, h / 2.4);
   cyl(potR * 1.18, potR * 0.9, 0.62, 12, M.stone, x, 0.31, z);
-  const blades = 15;
+  const blades = 12;
   for(let i = 0; i < blades; i++){
     // Two tiers, so the cluster has a dense skirt and a few tall leaves above it rather
     // than one flat fan — a single ring of planes reads as a shuttlecock.
     const tall = i % 3 === 0;
     const len = (tall ? h : h * 0.55) * rnd(0.85, 1.15);
-    const l = new THREE.Mesh(new THREE.PlaneGeometry(len, len * 0.34), M.frond);
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(len, len * 0.34), i % 4 === 0 ? M.frond : M.broadLeaf);
     // The pivot is the blade's centre, so half its length hangs below wherever this is
     // put. Lifting the tall tier by most of its own reach is what actually gets leaves
     // above the horizon — the first pass planted them at pot height and they read as
@@ -2065,9 +2752,9 @@ function frondCluster(x, z, h, spread){
 // same as "hard left in frame" — the first attempt sat at x=-5 and fell outside the 72°
 // cone entirely. Solved against the framing instead of by eye: this one lands at about
 // 33° off axis, just inside the left edge, roughly seven units out.
-frondCluster(-3.0, -3.2, 2.9, 1.0);
-frondCluster(-4.7, -5.4, 2.6, 1.0);
-frondCluster( 5.4, -6.1, 2.3, 1.0);
+// The reference keeps the fire sightline open. The four corner pots and exterior palms
+// already frame the aperture; extra floor clusters here placed flat leaf cards directly
+// behind the flames and turned the focal point into a silhouette collision.
 
 // Vegetation across the island body.
 //
@@ -2475,14 +3162,13 @@ const Sound = (function(){
       musicFilter = null, waterBus = null, waterGain = null, fireGain = null,
       surfGain = null, delayWet = null;
   let noiseBuf = null, userBuffer = null, musicSource = null;
-  let started = false, genOn = false, crackleOn = false;
-  let nextBeat = 0, beat = 0, schedTimer = null;
+  let started = false, crackleOn = false;
 
   // ---- the record: a streamed <audio> element routed into the music bus ----
   // The album is 4 hours long, so decoding whole tracks into AudioBuffers is out
   // (one 4-minute track is ~85 MB of float PCM). A MediaElementAudioSourceNode
   // streams instead, starts instantly, and still passes through musicFilter so
-  // the distance/occlusion mix applies exactly as it did to the generative loop.
+  // the record feels physically present in the lounge as the player walks around it.
   let trackEl = null, trackNode = null;
   let library = null, trackIndex = -1, surfaceOn = false;
 
@@ -2621,66 +3307,10 @@ const Sound = (function(){
     o.start(t); o.stop(t + dur + 0.02);
   }
 
-  // ---- generative exotica, used until a track is loaded ----
-  const SCALE = [220.0, 261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3];
-  const BASS  = [110.0, 87.31, 73.42, 82.41];
-  function vibe(freq, when, vol){
-    const car = AC.createOscillator(), mod = AC.createOscillator(),
-          mg = AC.createGain(), g = AC.createGain();
-    car.type = 'sine'; mod.type = 'sine';
-    car.frequency.value = freq;
-    mod.frequency.value = freq * 3.01;
-    mg.gain.value = freq * 1.1;
-    mod.connect(mg).connect(car.frequency);
-    g.gain.setValueAtTime(0.0001, when);
-    g.gain.linearRampToValueAtTime(vol, when + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + 1.9);
-    car.connect(g);
-    g.connect(musicBus);
-    if(window.__musicDelay) g.connect(window.__musicDelay);
-    car.start(when); mod.start(when);
-    car.stop(when + 2.0); mod.stop(when + 2.0);
-  }
-  function bass(freq, when){
-    const o = AC.createOscillator(), g = AC.createGain();
-    o.type = 'sine'; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, when);
-    g.gain.linearRampToValueAtTime(0.11, when + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + 1.1);
-    o.connect(g).connect(musicBus);
-    o.start(when); o.stop(when + 1.2);
-  }
-  function shaker(when, vol){
-    burstNoise(musicBus, when, 0.05, 7200, 0.8, vol, 'highpass');
-  }
-  function bird(when){
-    const o = AC.createOscillator(), g = AC.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(2100, when);
-    o.frequency.exponentialRampToValueAtTime(3500, when + 0.07);
-    g.gain.setValueAtTime(0.05, when);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.09);
-    o.connect(g).connect(musicBus);
-    o.start(when); o.stop(when + 0.1);
-  }
+  // The only generated sound on the music bus is quiet vinyl surface texture layered
+  // under an actual record. There is deliberately no generated tune or melodic fallback.
   function vinylPop(when){
     burstNoise(musicBus, when, 0.012, rnd(1200, 5000), 4, rnd(0.01, 0.05));
-  }
-  function scheduler(){
-    if(!genOn || !AC) return;
-    const spb = 60 / 96;
-    while(nextBeat < AC.currentTime + 0.3){
-      const t = Math.max(nextBeat, AC.currentTime + 0.02);
-      const bar = Math.floor(beat / 4) % 4;
-      if(beat % 2 === 0) shaker(t, 0.018);
-      if(beat % 4 === 0) bass(BASS[bar], t);
-      if(Math.random() < 0.5) vibe(SCALE[Math.floor(Math.random() * SCALE.length)], t, 0.055);
-      if(Math.random() < 0.12) vibe(SCALE[Math.floor(Math.random() * SCALE.length)], t + spb * 0.5, 0.035);
-      for(let k = 0; k < 3; k++) if(Math.random() < 0.5) vinylPop(t + Math.random() * spb);
-      nextBeat += spb;
-      beat++;
-    }
-    schedTimer = setTimeout(scheduler, 60);
   }
 
   // Vinyl surface noise, scheduled only while a record is actually turning. This
@@ -2737,8 +3367,6 @@ const Sound = (function(){
       const n = library.tracks.length;
       trackIndex = ((i % n) + n) % n;
       const t = library.tracks[trackIndex];
-      genOn = false;
-      if(schedTimer){ clearTimeout(schedTimer); schedTimer = null; }
       trackEl.src = t.src;
       const p = trackEl.play();
       if(p && p.catch) p.catch(function(){ /* autoplay gate — retried on next interact */ });
@@ -2789,13 +3417,14 @@ const Sound = (function(){
     },
     hasTrack: function(){ return !!userBuffer; },
     startMusic: function(){
-      if(!AC) return;
+      if(!AC) return false;
       musicBus.gain.cancelScheduledValues(AC.currentTime);
       musicBus.gain.setTargetAtTime(0.85, AC.currentTime, 0.8);
-      // priority: whatever record is already on the platter, then the album, then a
-      // dropped file, then the generative loop as the last resort.
-      if(trackEl && trackEl.src){ api.resumeTrack(); return; }
-      if(library && library.tracks.length){ api.playTrack(trackIndex < 0 ? 0 : trackIndex); return; }
+      // Only authored records belong on this turntable: the current side, the shared
+      // 65-track album, or a file the player deliberately supplied. If none is ready,
+      // remain silent instead of filling the resort with a synthetic fallback tune.
+      if(trackEl && trackEl.src) return api.resumeTrack();
+      if(library && library.tracks.length) return !!api.playTrack(trackIndex < 0 ? 0 : trackIndex);
       if(userBuffer){
         musicSource = AC.createBufferSource();
         musicSource.buffer = userBuffer;
@@ -2807,19 +3436,14 @@ const Sound = (function(){
         w.start();
         musicSource.connect(musicBus);
         musicSource.start();
-      } else {
-        genOn = true;
-        nextBeat = AC.currentTime + 0.25;
-        beat = 0;
-        scheduler();
+        return true;
       }
+      return false;
     },
     stopMusic: function(){
       if(!AC) return;
       musicBus.gain.setTargetAtTime(0.0001, AC.currentTime, 0.35);
       api.pauseTrack();
-      genOn = false;
-      if(schedTimer){ clearTimeout(schedTimer); schedTimer = null; }
       if(musicSource){
         const src = musicSource; musicSource = null;
         setTimeout(function(){ try{ src.stop(); }catch(e){} }, 900);
@@ -2863,7 +3487,7 @@ const Sound = (function(){
       const dRec = camPos.distanceTo(new THREE.Vector3(-4.4, 1.1, 7.55));
       musicFilter.frequency.setTargetAtTime(
         THREE.MathUtils.clamp(11000 / (1 + dRec * 0.55), 700, 12000), t, 0.3);
-      const sounding = genOn || musicSource || (trackEl && trackEl.src && !trackEl.paused);
+      const sounding = musicSource || (trackEl && trackEl.src && !trackEl.paused);
       musicBus.gain.setTargetAtTime(
         sounding ? Math.min(0.95, 3.4 / (1 + dRec * 0.5)) : 0.0001, t, 0.3);
       const dWater = camPos.distanceTo(new THREE.Vector3(-5.6, 0.6, -10.4));
@@ -2878,15 +3502,51 @@ const Sound = (function(){
 })();
 
 // ---------------------------------------------------------------- interaction state
+let recordLibraryLoading = false;
+let recordLibraryWaiters = [];
+function loadRecordLibrary(done){
+  if(Sound.hasLibrary()){ done(true); return; }
+  recordLibraryWaiters.push(done);
+  if(recordLibraryLoading) return;
+  if(!CFG.libraryUrl){
+    const waiting = recordLibraryWaiters.splice(0);
+    waiting.forEach(function(fn){ fn(false); });
+    return;
+  }
+  recordLibraryLoading = true;
+  Sound.loadLibrary(CFG.libraryUrl, function(ok){
+    recordLibraryLoading = false;
+    const waiting = recordLibraryWaiters.splice(0);
+    waiting.forEach(function(fn){ fn(!!ok); });
+  });
+}
+
 function toggleRecord(){
-  recordPlaying = !recordPlaying;
-  Sound.needle(recordPlaying);
   if(recordPlaying){
-    Sound.startMusic();
-    announceRecord();
-  } else {
+    recordPlaying = false;
+    Sound.needle(false);
     Sound.stopMusic();
     note('');
+    return;
+  }
+  // The first catalog fetch can lose a race with an immediate interaction, or fail if
+  // the preview server was briefly offline. The physical records are not "empty" in
+  // either case: retry the real house catalog at the moment the player reaches for it.
+  if(!Sound.hasLibrary() && !Sound.hasTrack()){
+    note('Opening the house collection.', '65 sides · Beach Noir Revue');
+    loadRecordLibrary(function(ok){
+      if(ok) toggleRecord();
+      else note('The record cabinet could not be opened.', 'Refresh the resort and try once more.');
+    });
+    return;
+  }
+  if(Sound.startMusic()){
+    recordPlaying = true;
+    Sound.needle(true);
+    announceRecord();
+  } else {
+    recordPlaying = false;
+    note('The platter is still.', 'The record library is unavailable.');
   }
 }
 
@@ -2925,16 +3585,25 @@ function announceRecord(){
   if(!t) return;
   const total = Sound.libraryInfo() ? Sound.libraryInfo().count : 0;
   const fresh = Collection.mark(t.id);
-  let line = '“' + t.title + '”  ·  ' + t.artist;
-  line += '\nside ' + t.n + ' of ' + total;
-  if(fresh) line += '  ·  never played';
-  line += '   —   ' + Collection.count() + ' of ' + total + ' heard';
-  note(line);
+  const firstHouseCopy = !LORE.record;
+  LORE.record = true;
+  let meta = 'side ' + t.n + ' of ' + total;
+  if(fresh) meta += '  ·  never played';
+  meta += '   —   ' + Collection.count() + ' of ' + total + ' heard';
+  if(firstHouseCopy) meta += '\nhouse copy · g. campoza · 1965';
+  note('“' + t.title + '”  ·  ' + t.artist, meta);
 }
 
 // Flipping through the shelf: take the next side off the pile.
 function nextRecord(){
-  if(!Sound.hasLibrary()){ note('Empty sleeves. The records are somewhere else.'); return; }
+  if(!Sound.hasLibrary()){
+    note('Opening the house collection.', '65 sides · Beach Noir Revue');
+    loadRecordLibrary(function(ok){
+      if(ok) nextRecord();
+      else note('The record cabinet could not be opened.', 'Refresh the resort and try once more.');
+    });
+    return;
+  }
   const cur = Sound.currentTrack();
   Sound.playTrack(cur ? cur.n : 0);   // n is 1-based, so this lands on the next side
   recordPlaying = true;
@@ -2943,15 +3612,18 @@ function nextRecord(){
 }
 function toggleValve(){
   valveOpen = !valveOpen;
+  if(valveOpen) LORE.valve = true;
   Sound.valve(valveOpen);
   fountainWater.visible = valveOpen;
-  note(valveOpen ? 'Line three is live.' : 'Line three is shut.');
+  note(valveOpen ? 'Line three is live.' : 'Line three is shut.',
+    valveOpen ? 'pressure climbs toward the locked office' : 'pressure falling');
 }
 
 let seated = null, seatTimer = 0;
 function sitDown(seat){
   seated = seat;
   seatTimer = 0;
+  document.body.classList.remove('resting');
   Sound.sit();
 }
 function standUp(){
@@ -2960,17 +3632,82 @@ function standUp(){
   player.pos.copy(seated.pos).add(fwd.multiplyScalar(1.5));
   seated = null;
   seatTimer = 0;
+  document.body.classList.remove('resting');
 }
 
 let noteTimer = null;
-function note(text){
+function note(text, meta){
   const el = document.getElementById('note');
-  if(!text){ el.style.opacity = 0; return; }
-  el.textContent = text;
-  el.style.opacity = 1;
+  const tutor = document.getElementById('tutor');
+  if(tutor) tutor.classList.remove('on');
+  if(!text){ el.classList.remove('on'); return; }
+  const primary = document.createElement('div');
+  primary.textContent = text;
+  el.replaceChildren(primary);
+  if(meta){
+    const detail = document.createElement('div');
+    detail.className = 'meta';
+    detail.textContent = meta;
+    el.appendChild(detail);
+  }
+  el.classList.add('on');
   if(noteTimer) clearTimeout(noteTimer);
-  noteTimer = setTimeout(function(){ el.style.opacity = 0; }, 4200);
+  noteTimer = setTimeout(function(){ el.classList.remove('on'); }, 4600);
 }
+
+function openArchive(entry){
+  if(state !== 'play') return;
+  const viewer = document.getElementById('photoInspect');
+  const image = document.getElementById('photoImage');
+  const close = document.getElementById('photoClose');
+  if(!viewer || !image || !close) return;
+
+  ARCHIVE_SEEN.add(entry.id);
+  LORE.photos = true;
+  document.getElementById('photoKicker').textContent =
+    'The Magnanimis archive · ' + ARCHIVE_SEEN.size + ' of ' + ARCHIVE_ENTRIES.length + ' found';
+  document.getElementById('photoTitle').textContent = entry.title;
+  document.getElementById('photoMeta').textContent = entry.meta;
+  image.src = entry.src;
+  image.alt = entry.alt;
+
+  // Freeze locomotion before releasing pointer lock. pointerlockchange only opens the
+  // pause screen from the play state, so the inspection view remains in control.
+  state = 'archive';
+  Object.keys(keys).forEach(function(k){ keys[k] = false; });
+  player.vel.set(0,0,0);
+  tMove = null; tLook = null;
+  setPrompt('', false);
+  setPlayHudVisible(false);
+  document.body.classList.add('photo-open');
+  viewer.setAttribute('aria-hidden', 'false');
+  viewer.classList.add('on');
+  if(document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
+  requestAnimationFrame(function(){ close.focus({preventScroll:true}); });
+}
+
+function closeArchive(){
+  const viewer = document.getElementById('photoInspect');
+  if(!viewer || !viewer.classList.contains('on')) return;
+  // Move focus out before hiding the dialog from assistive technology.
+  canvas.focus({preventScroll:true});
+  viewer.classList.remove('on');
+  viewer.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('photo-open');
+  state = 'play';
+  setPlayHudVisible(true);
+  checkOrientation();
+  if(!isTouch && canvas.requestPointerLock){
+    try {
+      const lock = canvas.requestPointerLock();
+      if(lock && lock.catch) lock.catch(function(){});
+    } catch(e){ /* pointer lock remains optional */ }
+  }
+}
+
+document.getElementById('photoClose').addEventListener('click', function(e){
+  e.preventDefault(); e.stopPropagation(); closeArchive();
+});
 
 // ---------------------------------------------------------------- player + input
 const player = {
@@ -2982,6 +3719,11 @@ const keys = {};
 let state = 'menu';
 
 addEventListener('keydown', function(e){
+  if(e.code === 'Escape' && state === 'archive'){
+    e.preventDefault();
+    closeArchive();
+    return;
+  }
   keys[e.code] = true;
   if(e.code === 'KeyE'){ interact(); }
   if(e.code === 'Escape' && seated) standUp();
@@ -3011,17 +3753,22 @@ addEventListener('touchstart', function(e){
   if(state !== 'play') return;
   for(let i = 0; i < e.changedTouches.length; i++){
     const t = e.changedTouches[i];
-    if(t.clientX < innerWidth * 0.45 && !tMove) tMove = {id: t.identifier, x: t.clientX, y: t.clientY, dx: 0, dy: 0};
-    else if(!tLook) tLook = {id: t.identifier, x: t.clientX, y: t.clientY};
+    const data = {id:t.identifier, x:t.clientX, y:t.clientY, sx:t.clientX, sy:t.clientY,
+      started:performance.now(), moved:false, dx:0, dy:0};
+    if(t.clientX < innerWidth * 0.45 && !tMove) tMove = data;
+    else if(!tLook) tLook = data;
   }
 }, {passive: true});
 addEventListener('touchmove', function(e){
+  if(state !== 'play') return;
   for(let i = 0; i < e.changedTouches.length; i++){
     const t = e.changedTouches[i];
     if(tMove && t.identifier === tMove.id){
+      if(Math.hypot(t.clientX - tMove.sx, t.clientY - tMove.sy) > 11) tMove.moved = true;
       tMove.dx = THREE.MathUtils.clamp((t.clientX - tMove.x) / 60, -1, 1);
       tMove.dy = THREE.MathUtils.clamp((t.clientY - tMove.y) / 60, -1, 1);
     } else if(tLook && t.identifier === tLook.id){
+      if(Math.hypot(t.clientX - tLook.sx, t.clientY - tLook.sy) > 11) tLook.moved = true;
       const a = angPerPixel();
       player.yaw -= (t.clientX - tLook.x) * a.x * CFG.lookGainTouch;
       player.pitch -= (t.clientY - tLook.y) * a.y * CFG.lookGainTouch;
@@ -3031,53 +3778,92 @@ addEventListener('touchmove', function(e){
   }
 }, {passive: true});
 addEventListener('touchend', function(e){
+  if(state !== 'play') return;
   for(let i = 0; i < e.changedTouches.length; i++){
     const t = e.changedTouches[i];
-    if(tMove && t.identifier === tMove.id) tMove = null;
-    if(tLook && t.identifier === tLook.id) tLook = null;
+    let ended = null;
+    if(tMove && t.identifier === tMove.id){ ended = tMove; tMove = null; }
+    if(tLook && t.identifier === tLook.id){ ended = tLook; tLook = null; }
+    if(ended && !ended.moved && performance.now() - ended.started < 420){
+      interactAt(t.clientX, t.clientY);
+    }
   }
 }, {passive: true});
+addEventListener('touchcancel', function(){ tMove = null; tLook = null; }, {passive:true});
 
 // ---------------------------------------------------------------- targeting
 const ray = new THREE.Raycaster();
 ray.far = CFG.reach;
 const centre = new THREE.Vector2(0, 0);
+const touchPoint = new THREE.Vector2();
 let target = null;
+let promptLabel = null, promptHot = false;
 
-function updateTarget(){
+function setPrompt(label, hot){
   const el = document.getElementById('prompt');
   const ret = document.getElementById('reticle');
+  const nextLabel = label || '';
+  const nextHot = !!hot;
+  if(nextLabel !== promptLabel){
+    el.replaceChildren();
+    if(nextLabel){
+      const key = document.createElement('kbd'); key.textContent = isTouch ? 'Tap' : 'E';
+      const copy = document.createElement('span'); copy.textContent = nextLabel;
+      el.append(key, copy);
+    }
+    el.classList.toggle('on', !!nextLabel);
+    promptLabel = nextLabel;
+  }
+  if(nextHot !== promptHot){
+    ret.classList.toggle('hot', nextHot);
+    promptHot = nextHot;
+  }
+}
+
+function interactiveAt(point){
+  ray.setFromCamera(point, camera);
+  const hits = ray.intersectObjects(INTERACTIVE, true);
+  return hits.length ? hits[0].object.userData.root || null : null;
+}
+
+function updateTarget(){
   if(seated){
     target = null;
-    el.innerHTML = '<b>E</b> &nbsp;Stand';
-    el.style.opacity = 1;
-    ret.classList.remove('hot');
+    const settled = seatTimer > 2.6;
+    document.body.classList.toggle('resting', settled);
+    setPrompt(settled ? '' : 'Stand', false);
     return;
   }
-  ray.setFromCamera(centre, camera);
-  const hits = ray.intersectObjects(INTERACTIVE, true);
-  const root = hits.length ? hits[0].object.userData.root : null;
-  target = root || null;
+  target = interactiveAt(centre);
   if(target && target.userData.act){
     let label = target.userData.act.label;
     if(target.userData.isRecord) label = recordPlaying ? 'Lift the needle' : 'Drop the needle';
     if(target.userData.isValve) label = valveOpen ? 'Close the valve' : 'Open the valve';
-    el.innerHTML = '<b>E</b> &nbsp;' + label;
-    el.style.opacity = 1;
-    ret.classList.add('hot');
+    setPrompt(label, true);
   } else {
-    el.style.opacity = 0;
-    ret.classList.remove('hot');
+    setPrompt('', false);
   }
+}
+function activateInteractive(root){
+  if(root && root.userData.act) root.userData.act.fn();
 }
 function interact(){
   if(state !== 'play') return;
+  const tutor = document.getElementById('tutor');
+  if(tutor) tutor.classList.remove('on');
   if(seated){ standUp(); return; }
-  if(target && target.userData.act) target.userData.act.fn();
+  activateInteractive(target);
 }
-addEventListener('click', function(){
-  if(state === 'play' && isTouch) interact();
-});
+function interactAt(clientX, clientY){
+  if(state !== 'play') return;
+  touchPoint.set(clientX / innerWidth * 2 - 1, -(clientY / innerHeight) * 2 + 1);
+  const direct = interactiveAt(touchPoint);
+  if(direct){
+    const tutor = document.getElementById('tutor');
+    if(tutor) tutor.classList.remove('on');
+    activateInteractive(direct);
+  } else interact();
+}
 
 // ---------------------------------------------------------------- movement
 function collide(p){
@@ -3163,7 +3949,7 @@ function updateFire(dt, time){
     // blown blob and why it alone accounted for most of the frame's clipped pixels.
     // Lower alpha lets more layers accumulate before clipping, so the flame keeps its
     // colour and only the very centre goes hot.
-    fire.alp[i] = Math.pow(heat, 1.4) * 0.52;
+    fire.alp[i] = Math.pow(heat, 1.4) * 0.46;
   }
   fire.geo.attributes.position.needsUpdate = true;
   fire.geo.attributes.aCol.needsUpdate = true;
@@ -3219,18 +4005,22 @@ let time = 0;
 // not a separate rig, so firelight, lantern breathing, the sea and the platter all keep
 // running exactly as they do in play.
 function animateWorld(dt, time){
-  // firelight flicker: three detuned sines plus a little noise, so it never loops audibly
+  // Firelight flicker: four detuned curves. Frame-rate white noise made the room shimmer
+  // like a faulty exposure; nested sines keep the irregularity but let the amber pool breathe.
   // Raised with the lanterns for blue hour — the firepit is the warmest thing in the
   // room and has to stay that way now the sky is carrying light.
-  fireLight.intensity = 4.4
+  fireLight.intensity = 4.15
     + Math.sin(time * 11.3) * 0.42
     + Math.sin(time * 17.1) * 0.26
     + Math.sin(time * 3.1) * 0.32
-    + Math.random() * 0.34;
+    + 0.17 + Math.sin(time * 29.1 + Math.sin(time * 1.7) * 0.8) * 0.12;
   fireLight.position.set(
     FIRE_POS.x + Math.sin(time * 5.1) * 0.07,
     FIRE_POS.y + Math.sin(time * 7.7) * 0.05,
     FIRE_POS.z + Math.cos(time * 4.3) * 0.07);
+  roofFireBounce.intensity = 0.50
+    + Math.sin(time * 3.1) * 0.025
+    + Math.sin(time * 11.3) * 0.018;
 
   for(let i = 0; i < LANTERN_LIGHTS.length; i++){
     const l = LANTERN_LIGHTS[i], p = l.userData.phase;
@@ -3254,6 +4044,8 @@ function animateWorld(dt, time){
 
   const wheelTarget = valveOpen ? -3.4 : 0;
   valveSpin.rotation.z += (wheelTarget - valveSpin.rotation.z) * Math.min(1, 2.4 * dt);
+  const gaugeTarget = valveOpen ? -0.75 : 0.65;
+  gaugeNeedle.rotation.z += (gaugeTarget - gaugeNeedle.rotation.z) * Math.min(1, 2.0 * dt);
 }
 
 function tick(){
@@ -3261,18 +4053,17 @@ function tick(){
   const dt = Math.min(clock.getDelta(), 0.05);
   time += dt;
 
+  // Capture mode renders one fully-warmed fixed frame synchronously below. In a visible
+  // browser rAF keeps running, so returning here prevents the walk camera from replacing
+  // that authored framing on the very next frame.
+  if(state === 'capture') return;
+
   if(state === 'play') updatePlayer(dt);
 
-  // The teaser owns the camera outright while it runs — free position, no collision,
-  // no eye height, no head bob. Everything else in the loop (fire, water, lanterns,
-  // audio mix) keeps running, which is what makes it a live scene and not a video.
+  // The authored teaser owns the screen while it runs. Do not render the WebGL scene
+  // underneath a black full-screen video; the room resumes on the next menu frame.
   if(state === 'teaser'){
     Teaser.update(dt);
-    Sound.update(camera.position, false, valveOpen);
-    updateFire(dt, time); updateMotes(dt, time); updateSpray(dt);
-    animateWorld(dt, time);
-    if(COMPOSER){ if(GRADE) GRADE.uniforms.uTime.value = time; COMPOSER.render(); }
-    else renderer.render(scene, camera);
     return;
   }
 
@@ -3284,13 +4075,16 @@ function tick(){
     // Framed off-axis on purpose: the firepit and the moon's path sit to one side of
     // frame rather than dead centre behind the title, so the type always has a quiet
     // area to land on as the camera drifts.
-    const a = time * 0.034;
+    // This is a title plate, not the walk camera. Use the pinned hero's longer 72°
+    // horizontal lens and only a restrained drift so the architecture keeps its scale
+    // and the lockup always lands on the same quiet pocket of the composition.
+    const a = time * 0.026;
     camera.position.set(
-      -2.9 + Math.sin(a) * 2.6,
-      1.70 + Math.sin(time * 0.08) * 0.08,
-      4.4 + Math.cos(a * 0.8) * 1.3);
+      -2.9 + Math.sin(a) * 0.85,
+      1.70 + Math.sin(time * 0.07) * 0.045,
+      4.4 + Math.cos(a * 0.8) * 0.48);
     camera.lookAt(2.6, 1.35, -4.2);
-    const mf = vFov(CFG.hfovWalk);
+    const mf = vFov(72);
     if(Math.abs(camera.fov - mf) > 0.05){ camera.fov = mf; camera.updateProjectionMatrix(); }
   } else {
     const eye = seated ? CFG.seatHeight : CFG.eyeHeight;
@@ -3336,7 +4130,7 @@ function tick(){
 // `la` to `lb`. Positions are free (not clamped to eye height or collision) because
 // this is a camera, not a player. Easing is smootherstep throughout — the brief for
 // this world is slow and unhurried, and a linear dolly reads as a security camera.
-const Teaser = (function(){
+const LegacyTeaser = (function(){
   const V = function(x, y, z){ return new THREE.Vector3(x, y, z); };
 
   const SHOTS = [
@@ -3552,6 +4346,108 @@ const Teaser = (function(){
   };
 })();
 
+// The front-door teaser is the finished video supplied for Gone Away. The former live
+// camera reel remains above as framing reference, but it no longer owns the menu action:
+// the authored edit, mix, pacing, and final title must arrive together as one piece.
+const Teaser = (function(){
+  const shell = document.getElementById('teaserFilm');
+  const video = document.getElementById('teaserVideo');
+  const close = document.getElementById('teaserClose');
+  const load = document.getElementById('teaserLoad');
+  let active = false, onDone = null, finishTimer = null, volumeFrame = 0;
+
+  function clearFinishTimer(){
+    if(finishTimer){ clearTimeout(finishTimer); finishTimer = null; }
+  }
+
+  function fadeVolume(to, duration){
+    if(volumeFrame) cancelAnimationFrame(volumeFrame);
+    const from = video.volume;
+    const began = performance.now();
+    function step(now){
+      const k = Math.min(1, (now - began) / Math.max(1, duration));
+      video.volume = from + (to - from) * k;
+      if(k < 1) volumeFrame = requestAnimationFrame(step);
+      else volumeFrame = 0;
+    }
+    volumeFrame = requestAnimationFrame(step);
+  }
+
+  function finish(hold){
+    if(!active) return;
+    clearFinishTimer();
+    const audioFade = video.ended ? 0 : 180;
+    if(audioFade) fadeVolume(0, audioFade);
+    finishTimer = setTimeout(function(){
+      if(!active) return;
+      active = false;
+      video.pause();
+      shell.classList.remove('waiting');
+      shell.classList.add('leaving');
+      setTimeout(function(){
+        shell.classList.remove('on', 'leaving');
+        shell.setAttribute('aria-hidden', 'true');
+        state = 'menu';
+        const done = onDone; onDone = null;
+        if(done) done();
+      }, 850);
+    }, (hold || 0) + audioFade);
+  }
+
+  video.addEventListener('waiting', function(){ if(active) shell.classList.add('waiting'); });
+  video.addEventListener('playing', function(){
+    shell.classList.remove('waiting');
+    if(active) fadeVolume(1, 500);
+  });
+  video.addEventListener('ended', function(){ finish(350); });
+  video.addEventListener('error', function(){
+    if(!active) return;
+    shell.classList.add('waiting');
+    load.textContent = 'The teaser could not be loaded';
+  });
+  close.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    finish(0);
+  });
+
+  return {
+    running: function(){ return active; },
+    start: function(done){
+      if(active) return;
+      onDone = done || null;
+      active = true;
+      state = 'teaser';
+      setPlayHudVisible(false);
+      clearFinishTimer();
+      load.textContent = 'Preparing the teaser';
+      shell.classList.remove('leaving');
+      shell.classList.add('waiting');
+      shell.setAttribute('aria-hidden', 'false');
+      video.controls = false;
+      video.muted = false;
+      video.volume = 0;
+      video.currentTime = 0;
+      requestAnimationFrame(function(){
+        shell.classList.add('on');
+        close.focus({preventScroll:true});
+      });
+      const p = video.play();
+      if(p && p.catch){
+        p.catch(function(){
+          // The menu click should satisfy autoplay policy. If a browser still refuses,
+          // expose native controls instead of substituting unrelated generated music.
+          shell.classList.add('waiting');
+          load.textContent = 'Press play to begin';
+          video.controls = true;
+        });
+      }
+    },
+    skip: function(){ finish(0); },
+    update: function(){},
+    totalSeconds: 19
+  };
+})();
+
 // ---------------------------------------------------------------- boot / screens
 const startEl = document.getElementById('start');
 const pauseEl = document.getElementById('pause');
@@ -3566,7 +4462,27 @@ function showTutor(){
   const el = document.getElementById('tutor');
   if(!el) return;
   setTimeout(function(){ el.classList.add('on'); }, 900);
-  setTimeout(function(){ el.classList.remove('on'); }, 8600);
+  setTimeout(function(){ el.classList.remove('on'); }, 6200);
+}
+
+function setPlayHudVisible(visible){
+  document.body.classList.toggle('play-hud-off', !visible);
+}
+
+let welcomeShown = false;
+function welcomeArrival(done){
+  const el = document.getElementById('welcome');
+  if(!el || welcomeShown){ if(done) done(); return; }
+  welcomeShown = true;
+  el.setAttribute('aria-hidden', 'false');
+  // The room and its sound arrive before controls do. This short interval is still
+  // fully lookable and walkable; it creates a threshold without taking agency away.
+  requestAnimationFrame(function(){ el.classList.add('on'); });
+  setTimeout(function(){ el.classList.remove('on'); }, 2600);
+  setTimeout(function(){
+    el.setAttribute('aria-hidden', 'true');
+    if(done) done();
+  }, 3500);
 }
 
 // Settings live behind one quiet word rather than on the front page.
@@ -3577,23 +4493,36 @@ function showTutor(){
   t.addEventListener('click', function(e){
     e.preventDefault(); e.stopPropagation();
     p.classList.toggle('open');
-    t.textContent = p.classList.contains('open') ? 'Close' : 'Settings';
+    const open = p.classList.contains('open');
+    t.textContent = open ? 'Close' : 'Settings';
+    t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    p.setAttribute('aria-hidden', open ? 'false' : 'true');
   });
 })();
 
+let enterTransition = false;
 function enter(){
-  // The title screen has a catch-all click handler, so a click on "Teaser" can reach
-  // here too. Never let entering play stomp a running reel.
-  if(Teaser.running()) return;
-  showTutor();
-  // clear the UI first: if audio fails, the player is still in the scene
+  // One physical tap used to arrive as touchend, pointerup and click, invoking this up
+  // to three times. Latch the transition so entering remains one clean gesture.
+  if(Teaser.running() || enterTransition || state === 'play') return;
+  enterTransition = true;
+  const fromScreen = pauseEl.style.display === 'flex' ? pauseEl : startEl;
+  const firstArrival = fromScreen === startEl && !welcomeShown;
+  fromScreen.classList.add('leaving');
+  setPlayHudVisible(false);
+  // Play starts under a short optical fade. Pointer lock is still requested inside the
+  // user gesture, while the overlay gets enough time to dissolve instead of vanishing.
   state = 'play';
-  startEl.style.display = 'none';
-  pauseEl.style.display = 'none';
   const l = document.getElementById('loading');
-  if(l) l.style.display = 'none';
+  if(l) l.classList.add('done');
   try {
-    if(!isTouch && canvas.requestPointerLock) canvas.requestPointerLock();
+    if(!isTouch && canvas.requestPointerLock){
+      const lock = canvas.requestPointerLock();
+      // Embedded preview browsers may decline pointer lock asynchronously. It is an
+      // optional enhancement, so consume that rejection and leave mouse-drag fallback
+      // available rather than logging a false app failure.
+      if(lock && lock.catch) lock.catch(function(){});
+    }
   } catch(e){ /* pointer lock is optional */ }
   try {
     Sound.init();
@@ -3601,16 +4530,30 @@ function enter(){
   } catch(e){
     note('Audio unavailable on this device.');
   }
+  setTimeout(function(){
+    fromScreen.style.display = 'none';
+    fromScreen.classList.remove('leaving');
+    if(firstArrival){
+      welcomeArrival(function(){
+        if(state === 'play'){
+          setPlayHudVisible(true);
+          showTutor();
+        }
+      });
+    } else {
+      setPlayHudVisible(true);
+      if(!tutorShown) showTutor();
+    }
+    enterTransition = false;
+  }, 820);
 }
 
 function bindEnter(el){
   if(!el) return;
-  ['click', 'touchend', 'pointerup'].forEach(function(ev){
-    el.addEventListener(ev, function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      enter();
-    }, {passive: false});
+  el.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    enter();
   });
 }
 bindEnter(document.getElementById('enterBtn'));
@@ -3622,42 +4565,42 @@ bindEnter(document.getElementById('resumeBtn'));
 (function(){
   const btn = document.getElementById('teaserBtn');
   if(!btn) return;
-  ['click', 'touchend', 'pointerup'].forEach(function(ev){
-    btn.addEventListener(ev, function(e){
-      e.preventDefault(); e.stopPropagation();
-      if(Teaser.running()) return;
-      startEl.style.display = 'none';
-      pauseEl.style.display = 'none';
-      const l = document.getElementById('loading'); if(l) l.style.display = 'none';
-      Teaser.start(function(){ startEl.style.display = 'flex'; });
-    }, {passive: false});
+  btn.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    if(Teaser.running()) return;
+    startEl.style.display = 'none';
+    pauseEl.style.display = 'none';
+    const l = document.getElementById('loading'); if(l) l.classList.add('done');
+    Teaser.start(function(){
+      startEl.classList.add('post-film');
+      startEl.style.display = 'flex';
+      btn.textContent = 'Replay Teaser';
+      const enter = document.getElementById('enterBtn');
+      if(enter) enter.focus();
+    });
   });
 })();
 
-// Any input skips the reel, the way any attract mode should behave.
-['keydown', 'mousedown', 'touchstart'].forEach(function(ev){
-  addEventListener(ev, function(){ if(Teaser.running()) Teaser.skip(); }, {passive: true});
-});
-
-// tapping anywhere on a title screen also enters — except the file picker
-[startEl, pauseEl].forEach(function(el){
-  el.addEventListener('click', function(e){
-    if(e.target && e.target.closest && e.target.closest('.load, .opts, #prefs, #prefsToggle')) return;
-    enter();
-  });
+// A deliberate escape path. Generic mouse/touch listeners made an incidental tap on
+// the teaser close it immediately, especially on phones.
+addEventListener('keydown', function(e){
+  if(Teaser.running() && e.key === 'Escape') Teaser.skip();
 });
 
 // touch devices get their own control hints
 if(isTouch){
-  const k = document.querySelector('#start .keys');
-  if(k) k.innerHTML = 'Drag the left side — walk<br>Drag the right side — look<br>Tap — interact';
+  const k = document.getElementById('tutor');
+  if(k) k.innerHTML = '<span>Drag left</span> to wander &nbsp;·&nbsp; <span>Drag right</span> to look &nbsp;·&nbsp; <span>Tap</span> when something invites you closer';
 }
 
 document.addEventListener('pointerlockchange', function(){
   if(state === 'play' && !document.pointerLockElement && !isTouch){
     state = 'paused';
     pauseEl.style.display = 'flex';
-    document.getElementById('prompt').style.opacity = 0;
+    setPlayHudVisible(false);
+    const resume = document.getElementById('resumeBtn');
+    if(resume) resume.focus();
+    setPrompt('', false);
   }
 });
 
@@ -3685,8 +4628,8 @@ addEventListener('drop', function(e){
 if(CFG.musicUrl) Sound.loadUrl(CFG.musicUrl, function(){});
 
 // Fetch the album catalog up front so the record player has something on it the
-// first time it's used. Failure is not an error: on file:// the fetch is blocked
-// and the generative loop stands in, exactly as before.
+// first time it is used. If this fails, the environmental beds remain but the platter
+// stays still; unrelated generated music must never impersonate the real album.
 if(CFG.libraryUrl){
   Sound.loadLibrary(CFG.libraryUrl, function(ok, lib){
     const el = document.getElementById('libInfo');
@@ -3723,11 +4666,47 @@ if(CFG.libraryUrl){
   });
 })();
 
+let orientationDismissed = false;
+let orientationReturnFocus = null;
+function roomFocusTarget(){
+  const start = document.getElementById('start');
+  const pause = document.getElementById('pause');
+  if(start && start.style.display === 'flex') return document.getElementById('enterBtn');
+  if(pause && pause.style.display === 'flex') return document.getElementById('resumeBtn');
+  return canvas;
+}
 function checkOrientation(){
   const el = document.getElementById('rotate');
   if(!el) return;
-  el.style.display = (isTouch && innerHeight > innerWidth) ? 'flex' : 'none';
+  const suggest = isTouch && innerHeight > innerWidth && !orientationDismissed &&
+    !document.body.classList.contains('photo-open');
+  const wasShown = el.style.display === 'flex';
+  if(suggest){
+    el.style.display = 'flex';
+    if(!wasShown){
+      const active = document.activeElement;
+      orientationReturnFocus = active && active !== document.body && !el.contains(active)
+        ? active : roomFocusTarget();
+      requestAnimationFrame(function(){
+        if(el.style.display === 'flex' && rotateDismiss) rotateDismiss.focus({preventScroll:true});
+      });
+    }
+    return;
+  }
+  if(wasShown && el.contains(document.activeElement)){
+    const target = orientationReturnFocus && document.contains(orientationReturnFocus)
+      ? orientationReturnFocus : roomFocusTarget();
+    if(target && target.focus) target.focus({preventScroll:true});
+  }
+  el.style.display = 'none';
+  orientationReturnFocus = null;
 }
+const rotateDismiss = document.getElementById('rotateDismiss');
+if(rotateDismiss) rotateDismiss.addEventListener('click', function(e){
+  e.preventDefault(); e.stopPropagation();
+  orientationDismissed = true;
+  checkOrientation();
+});
 addEventListener('resize', checkOrientation);
 addEventListener('orientationchange', function(){ setTimeout(checkOrientation, 300); });
 checkOrientation();
@@ -3779,9 +4758,9 @@ checkOrientation();
       // the arrival shot regardless of how far its base colour came down.
       brass: 1.55, bronze: 1.30, copper: 0.50, vinyl: 1.25, glass: 1.5,
       bottle: 1.2, liquid: 1.1, wet: 0.95, stream: 1.2,
-      floor: 0.62, panel: 0.30, pillar: 0.38, beam: 0.22,
-      rattan: 0.18, fabric: 0.20, stone: 0.24, mat: 0.14,
-      thatch: 0.10, dark: 0.30, petal: 0.35, leaf: 0.22, frond: 0.18
+      floor: 0.68, panel: 0.30, pillar: 0.38, beam: 0.28,
+      rattan: 0.24, cane: 0.22, fabric: 0.24, fabricAccent: 0.24, stone: 0.24, mat: 0.14,
+      thatch: 0.10, dark: 0.30, petal: 0.35, leaf: 0.22, frond: 0.18, broadLeaf: 0.16
     };
     Object.keys(gloss).forEach(function(k){
       if(M[k] && M[k].isMeshStandardMaterial){
@@ -3815,8 +4794,15 @@ if(COMPOSER){
 renderer.compile(scene, camera);
 tick();
 setTimeout(function(){
-  document.getElementById('loading').style.display = 'none';
+  const captureQuery = new URLSearchParams(location.search || '');
+  const captureHash = location.hash ? new URLSearchParams(location.hash.slice(1)) : null;
+  if(captureQuery.has('shot') || (captureHash && captureHash.has('shot'))) return;
   startEl.style.display = 'flex';
+  const loading = document.getElementById('loading');
+  if(loading){
+    loading.classList.add('done');
+    setTimeout(function(){ loading.style.display = 'none'; }, 950);
+  }
 }, 120);
 
 /* ------------------------------------------------------------------ capture mode
@@ -3857,6 +4843,12 @@ const CAPTURE = (function(){
     seaward: { pos:[ 0.0, 1.68,  1.0], at:[ 0.0, 1.55,-20.0], hfov:85 },
     firepit: { pos:[-1.2, 1.68,  2.2], at:[ 1.4, 0.90, -1.2], hfov:85 },
     terrace: { pos:[ 0.5, 1.68, -5.5], at:[ 1.0, 1.40,-20.0], hfov:85 },
+    archive: { pos:[ 1.2, 1.72, -0.2], at:[ 1.2, 3.05,  8.1], hfov:92 },
+    archiveWest:  { pos:[-6.3, 1.72,  3.9], at:[-9.2, 2.90,  3.9], hfov:66 },
+    archiveEast:  { pos:[ 6.3, 1.72,  4.0], at:[ 9.2, 2.90,  4.0], hfov:66 },
+    archiveLines: { pos:[-7.7, 1.66, -1.2], at:[-7.7, 2.34, -4.1], hfov:62 },
+    archiveJetty: { pos:[ 7.7, 1.66, -1.2], at:[ 7.7, 2.34, -4.1], hfov:62 },
+    record:  { pos:[-2.7, 1.64,  5.0], at:[-4.1, 1.22,  7.5], hfov:66 },
     // Exterior. The build has only ever been reviewed from inside, which is exactly how
     // the pavilion got to be an unlit slab with a flat back — nobody had a framing that
     // pointed at it. These are the arrival views the pitch's first two prompts describe.
@@ -3901,29 +4893,44 @@ const CAPTURE = (function(){
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
 
-  if(COMPOSER){ if(GRADE) GRADE.uniforms.uTime.value = time; COMPOSER.render(); }
-  else renderer.render(scene, camera);
+  function finishCapture(){
+    if(COMPOSER){ if(GRADE) GRADE.uniforms.uTime.value = time; COMPOSER.render(); }
+    else renderer.render(scene, camera);
 
-  // The renderer has no preserveDrawingBuffer, so the colour buffer is only valid in
-  // the same synchronous task as the draw. toBlob is async and would race the clear,
-  // so read back with toDataURL and build the Blob from that.
-  const url = canvas.toDataURL('image/png');
-  const bin = atob(url.slice(url.indexOf(',') + 1));
-  const buf = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  const blob = new Blob([buf], {type:'image/png'});
+    // The renderer has no preserveDrawingBuffer, so the colour buffer is only valid in
+    // the same synchronous task as the draw. toBlob is async and would race the clear,
+    // so read back with toDataURL and build the Blob from that.
+    const url = canvas.toDataURL('image/png');
+    // Keep a DOM-backed copy visible as well. This makes the same capture URL reviewable
+    // in an ordinary visible browser after WebGL has cleared its non-preserved backbuffer.
+    const preview = new Image();
+    preview.src = url; preview.alt = '';
+    preview.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:60';
+    document.body.appendChild(preview);
+    const bin = atob(url.slice(url.indexOf(',') + 1));
+    const buf = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    const blob = new Blob([buf], {type:'image/png'});
 
-  // The title is the completion signal: the caller polls it rather than guessing
-  // how long a boot takes. It must only say OK once the bytes are actually on disk,
-  // so it is set from the response, not from the request.
-  const name = q.get('as') || q.get('shot');
-  document.title = 'CAPTURE POSTING ' + blob.size;
-  fetch('/__shot?name=' + encodeURIComponent(name), {method:'POST', body: blob})
-    .then(r => r.text())
-    .then(t => { document.title = 'CAPTURE OK ' + w + 'x' + h + ' ' + t; })
-    .catch(e => { document.title = 'CAPTURE FAIL ' + e.message; });
+    // The title is the completion signal: the caller polls it rather than guessing
+    // how long a boot takes. It must only say OK once the bytes are actually on disk,
+    // so it is set from the response, not from the request.
+    const name = q.get('as') || q.get('shot');
+    document.title = 'CAPTURE POSTING ' + blob.size;
+    fetch('/__shot?name=' + encodeURIComponent(name), {method:'POST', body: blob})
+      .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(t => { document.title = 'CAPTURE OK ' + w + 'x' + h + ' ' + t; })
+      .catch(e => { document.title = 'CAPTURE FAIL ' + e.message; });
+  }
 
-  return {w, h, bytes: blob.size, t: time};
+  // Local image assets arrive after the synchronous scene build. waitAssets=1 gives
+  // them one short turn before the review render without slowing the playable boot.
+  if(q.get('waitAssets') === '1'){
+    document.title = 'CAPTURE WAITING FOR ASSETS';
+    setTimeout(finishCapture, 1200);
+  } else finishCapture();
+
+  return {w, h, bytes:0, t:time};
 })();
 
 </script>

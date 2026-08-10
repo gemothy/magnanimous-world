@@ -17,6 +17,8 @@ const root = resolve(here, '..');
 const SOURCE = resolve(root, '../tiki-lounge/lib/library.ts');
 const AUDIO_DIR = resolve(root, 'audio/beach-noir');
 const OUT = resolve(root, 'audio/library.json');
+const STREAM_BASE = (process.env.GONE_AWAY_AUDIO_BASE ||
+  'https://tiki-lounge-beta.vercel.app/audio/beach-noir').replace(/\/+$/, '');
 
 if (!existsSync(SOURCE)) {
   console.error(`Cannot find tiki-lounge library at:\n  ${SOURCE}`);
@@ -45,7 +47,9 @@ while ((m = tuple.exec(block[1])) !== null) {
     title: filename.replace(/\.mp3$/i, '').replace(/^\d+\s+/, '').trim(),
     artist: 'mellokitty',
     duration: Number(duration),
-    src: `./audio/beach-noir/${n}.m4a`
+    // The public Tiki Lounge origin is the durable source for local previews and
+    // deployments. The symlink below remains a local verification/fallback copy.
+    src: `${STREAM_BASE}/${n}.m4a`
   });
 }
 
@@ -55,7 +59,9 @@ if (!tracks.length) {
 }
 
 // Verify the audio actually exists before claiming a working library.
-const missing = tracks.filter((t) => !existsSync(resolve(root, t.src))).map((t) => t.src);
+const missing = tracks
+  .filter((t) => !existsSync(resolve(AUDIO_DIR, `${String(t.n).padStart(2, '0')}.m4a`)))
+  .map((t) => `${String(t.n).padStart(2, '0')}.m4a`);
 
 const library = {
   title: 'Beach Noir Revue',
@@ -72,6 +78,7 @@ await writeFile(OUT, JSON.stringify(library, null, 2) + '\n');
 const mins = Math.floor(library.totalSeconds / 60);
 console.log(`Wrote ${OUT}`);
 console.log(`  ${tracks.length} tracks · ${Math.floor(mins / 60)}h ${mins % 60}m`);
+console.log(`  stream base: ${STREAM_BASE}`);
 if (missing.length) {
   console.warn(`  WARNING: ${missing.length} audio file(s) missing, first: ${missing[0]}`);
   console.warn(`  Expected them under ${AUDIO_DIR}`);
