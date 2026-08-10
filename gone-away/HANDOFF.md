@@ -1,20 +1,25 @@
 # Gone Away — handoff
 
-First-person browser build of the Magnanimis lounge. Single file, all procedural: geometry,
-textures and ambient audio are generated at runtime. Three.js r128 from a CDN. The only
-binary assets are the soundtrack, which is shared from `tiki-lounge` by symlink.
+First-person browser build of the Magnanimis lounge. The environment and ambient sound are
+generated at runtime with Three.js r128, with commissioned archive and material images under
+`assets/`. Authored media also includes the teaser at `media/gone-away-teaser-v2.mp4` and the
+soundtrack streamed from the existing Tiki Lounge public media origin. A local symlink is
+retained for verification and recovery.
 
 ```bash
 cd gone-away
 python3 -m http.server 8791     # then open http://localhost:8791/index.html
 ```
 
-Serve over http — `file://` blocks the library fetch and you fall back to the generative loop.
+Serve over http — `file://` blocks the record catalog and media fetches. There is deliberately
+no generated music fallback; if the album is unavailable, the room keeps only its ambience.
 
-The title screen offers **Watch the teaser** (a 72-second in-engine reel, any key to skip) and
+The title screen offers **Watch the teaser** (the authored 14.5-second video; Return or Escape) and
 **Enter the lounge**. In the lounge: WASD to walk, mouse to look, **E** to interact, **Esc** to
 release the cursor. Interactive: the record player, the LP stack, three sofas, the valve, the
-locked door.
+locked door and six independently placed archive photographs. On touch devices, a short tap
+raycasts from the tap position; walking and looking remain drag gestures. The records sit on
+the low console along the back-left wall, behind and left of the starting view.
 
 ---
 
@@ -74,62 +79,20 @@ was solving a problem that does not exist.
 
 ## The teaser
 
-A 72-second in-engine attract reel, reachable from **Watch the teaser** on the title screen.
-Every frame is the live scene with the live lighting — nothing is pre-rendered — so the reel
-can never promise something the game does not actually look like. `Teaser` owns eight shots;
-`animateWorld()` was pulled out of `tick()` specifically so the cinematic runs the identical
-fire, lantern, sea and platter animation as play.
+`media/gone-away-teaser-v2.mp4` is the primary teaser: 14.5 seconds, 1280x720 at 24 fps with its
+own AAC stereo mix and baked 2.39:1 matte. It plays untouched on a black `object-fit:contain`
+stage, so do not add another letterbox or crop the frame. The menu click is the unmuted play
+gesture; the video volume eases in over 500 ms. Return and Escape share a short audio/visual
+fade rather than a hard cut.
 
-Structure: approach off the lagoon → the symmetric pavilion hero → firelight (no caption; the
-room gets to speak once) → Garmus's turntable → the valve → the locked door → rise and pull
-away → title card over the moonlit water. Six captions, each arriving a beat after its cut and
-leaving before the next, drawn from the pitch's own premise.
+The WebGL loop stops rendering while the teaser is visible. This avoids decoding video and
+rendering the full room simultaneously on mobile. On completion, the teaser resolves to the
+live lounge with **Enter Lounge** and **Replay Teaser**, not a repeated title lockup and not an
+automatic pointer-lock transition.
 
-Presentation is letterboxed to **2.39** (`body.cine`), which is the cheapest strong signal that
-what you are watching is a film, and the reticle and interaction prompt are suppressed. The
-title card is pitch prompt #10: thin mid-century lettering held over the moon's path.
-
-**Depth of field runs in the reel only.** A shallow focal plane is beautiful to watch and
-horrible to walk around in, so play stays sharp. Focus rides the shot's look target — whatever
-a shot is pointed at is what is sharp — so there are no focus numbers to hand-tune and none to
-get out of sync when a move is retimed. Aperture is `0.0055`; three's default of `0.00035` is
-completely invisible at this scale. Shots can also set their own `hfov`: close work wants a
-longer lens than an establishing wide, and shooting everything at one focal length is what
-makes a reel feel like a camera on rails instead of a cut sequence.
-
-**On restraint.** The captions were originally six explanatory sentences — a synopsis, not a
-teaser. They are now five fragments that escalate and never explain:
-
-> They come here to disappear.
-> The man who built it walked into the sea.
-> They sent for a plumber.
-> By morning a guest is dead.
-> No one can leave. Everyone has the same motive.
-
-**Do not date the scene in the copy.** The second beat was once "It is always 1965 here" and it
-was wrong in a way worth recording: dating the resort makes it sound *preserved* — stuck,
-mothballed, past its prime — which is exactly the register the art direction rejects. The era is
-the resort's product, not its affliction, and the image already says 1965 without help. A caption
-should carry what the picture cannot; here that is why anyone pays to be here. The replacement
-also lands the title in the first beat and ends up describing the founder and the dead guest as
-well.
-
-The "any key to skip" badge is gone; any key still skips.
-
-Things worth knowing before editing it:
-
-- **Shots are authored as dollies** — camera eases `a`→`b` while looking `la`→`lb`, on
-  smootherstep. A linear dolly in this world reads as a security camera.
-- **Captions and the card are latched off the shot's own accumulated `t`, not `setTimeout`.**
-  They were originally scheduled in wall-clock time, and any frame-rate variance — or a
-  backgrounded tab — slid the words out from under the pictures they belonged to. A 10×
-  accelerated test showed 2 of 7 captions surviving; on the shot clock all 6 land in order.
-- `Teaser.preview(i, k)` parks the camera at shot `i`, progress `k`, and renders one frame.
-  This is how the shots were framed and how they should be re-tuned. It requires
-  `state = 'teaser'`, otherwise `tick()` immediately overwrites the camera from `player`.
-- **It opens on the lagoon side deliberately.** The first draft opened from behind the
-  pavilion, where the building is an unlit black slab — every warm thing in this world faces
-  the water.
+The older in-engine shot list remains in `LegacyTeaser` as framing reference only. It is not
+connected to the interface. `Sound.startMusic()` cannot produce a substitute composition:
+only the real album, an explicitly loaded file, or silence can come from the turntable.
 
 ## The title screen
 
@@ -190,9 +153,16 @@ what stops it reading as a uniform dome.
 **The trap to avoid:** raising the ambient without raising the practicals. When the sky started
 carrying real light, the interior immediately went cold and flat, because the lanterns and fire
 had been balanced against a black scene. Warm-against-cool *is* the look, so the practicals had
-to climb with it — lanterns roughly tripled (0.6 → 1.65), the record lamp to 3.3, the firepit
-from 2.5 to 4.4. At blue hour the inside of the pavilion should read amber and occupied,
-brighter than the water beyond it.
+to climb with it — lanterns roughly tripled (0.6 → 1.65) and the record lamp reached 3.3. The
+fire is now deliberately local: a fixed 3.70 shadow key with roughly ±5% irregular flutter, a
+0.64 shadowless hearth fill and a nearly static 0.42 roof bounce. At blue hour the inside of the
+pavilion should read amber and occupied, brighter than the water beyond it.
+
+**Never animate `fireLight.position`.** The old ±5–7 cm three-axis motion moved every shadow in
+the room and read as a light fixture swinging above the fire. Keep the shadow caster planted at
+`FIRE_POS`; only its narrow intensity envelope and the visible flame particles should move. The
+low table practical is intentionally steady so the drink, flower, linen and cane give the eye a
+calm warm place to rest.
 
 ## The rest of the resort
 
@@ -254,6 +224,30 @@ What that meant concretely, because "luxury" in a renderer is specific:
   terracotta. Deeper base, restrained relief highlight — polished wood, not gilding.
 - **Restraint in the grade.** Saturation pulled back (1.12 → 1.03) and a filmic S-curve added.
   Heavy saturation reads cheap; contrast reads expensive.
+
+### Commissioned archive and house materials
+
+The lounge now has authored image assets under `assets/`, generated specifically for the
+Magnanimis rather than used as generic period decoration:
+
+- `assets/archive/` contains six pristine 1965 silver-gelatin lore photographs: Garmus
+  Campoza's portrait, Garmus among guests at the Magnanimis, the spring-fed pool, arrivals at
+  the jetty, the original lounge with Garmus's turntable and records, and Garmus's water
+  system. Garmus uses one consistent fictional identity across the set.
+- `assets/materials/` contains the Magnanimis jacquard, fine furniture cane and an invented
+  wave-and-leaf carved-teak house pattern. The jacquard is confined to loose accent cushions;
+  the carved finish belongs to the pillars and manager's-door inserts.
+
+All nine files are 1024px JPEGs. They load asynchronously over the complete procedural
+materials, so a missing asset logs a warning and leaves a finished fallback rather than a
+blank wall or white surface. The six photographs are distributed through the room: Garmus
+above the record console, the gathering above the bar, lounge and pool on opposite side walls,
+and the water-system and jetty images on the lagoon-facing pillars. Each frame opens only its
+own image and lore copy in a full-screen, no-carousel inspection view. The Return control is
+touch-sized and always visible; portrait orientation is suggested, never enforced. Image,
+title, caption, alt text and placement stay joined in `ARCHIVE_ENTRIES` so the lore cannot
+drift out of order again. Do not repopulate the set with invented staff biographies or suspect
+claims.
 
 ### The S-curve trap
 
@@ -450,8 +444,12 @@ so treat them as orders of magnitude, not precision figures.
 The record player plays the **Beach Noir Revue** — 65 tracks, 4h 02m, by mellokitty — shared
 from the `tiki-lounge` app.
 
-- `audio/beach-noir` is a **symlink** to `tiki-lounge/public/audio/beach-noir` (74 MB of
-  `.m4a`). No duplication; `tiki-lounge` stays the source of truth.
+- Runtime track URLs use
+  `https://tiki-lounge-beta.vercel.app/audio/beach-noir/NN.m4a`. The origin supports CORS
+  and byte-range delivery, and all 65 URLs were verified before wiring the catalog to it.
+- `audio/beach-noir` remains a **symlink** to `tiki-lounge/public/audio/beach-noir` (74 MB
+  of `.m4a`) for local verification and recovery. No duplication; `tiki-lounge` stays the
+  source of truth.
 - `scripts/build-library.mjs` parses `tiki-lounge/lib/library.ts` and emits `audio/library.json`.
   Re-run it whenever the album changes. It verifies every file exists and refuses to write an
   empty library.
@@ -467,8 +465,11 @@ from the `tiki-lounge` app.
 - Tracks auto-advance on `ended`, so the room keeps playing unattended.
 
 Interactions: **record player** drops/lifts the needle; **LP stack** takes the next side off the
-pile and announces the label. Fallback order is deliberate — current record, then the album,
-then a dragged-in file, then the generative loop. Dropping a file still works.
+pile and announces the label. Playback is deliberately limited to the current record, the
+album, or a file the player explicitly loads—never a generated substitute. Dropping a file
+still works. If the initial catalog request loses a race or the preview server was briefly
+offline, touching either the platter or sleeves retries the real catalog instead of declaring
+the sleeves empty.
 
 ### The collection is the collectible loop
 
@@ -606,5 +607,6 @@ moment it takes on an asset pipeline it stops being editable from a terminal.
 `CFG` at the top: walk speed, head bob (off — it is *not* the sickness cause, but it does not
 help), look sensitivity, FOV walking vs seated, fog, reach, eye height, `libraryUrl`.
 
-The look lives in the balance between `fireLight.intensity` (warm, inside) and
-`moonLight.intensity` (cool, outside). Change those two before anything else.
+The look lives in the balance between the fixed fire key plus its short-range hearth fill
+(warm, inside) and `moonLight.intensity` (cool, outside). Change that local/cool balance before
+raising global ambient light.
