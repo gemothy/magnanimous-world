@@ -2,7 +2,7 @@
 
 First-person browser build of the Magnanimis lounge. The environment and ambient sound are
 generated at runtime with Three.js r128, with commissioned archive and material images under
-`assets/`. Authored media also includes the teaser at `media/gone-away-teaser-v2.mp4` and the
+`assets/`. Authored media also includes the teaser at `media/gone-away-teaser-v3.mp4` and the
 soundtrack streamed from the existing Tiki Lounge public media origin. A local symlink is
 retained for verification and recovery.
 
@@ -79,7 +79,7 @@ was solving a problem that does not exist.
 
 ## The teaser
 
-`media/gone-away-teaser-v2.mp4` is the primary teaser: 14.5 seconds, 1280x720 at 24 fps with its
+`media/gone-away-teaser-v3.mp4` is the primary teaser: 14.5 seconds, 1280x720 at 24 fps with its
 own AAC stereo mix and baked 2.39:1 matte. It plays untouched on a black `object-fit:contain`
 stage, so do not add another letterbox or crop the frame. The menu click is the unmuted play
 gesture; the video volume eases in over 500 ms. Return and Escape share a short audio/visual
