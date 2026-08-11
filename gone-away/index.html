@@ -48,26 +48,32 @@
     transform:translate(-50%,8px);z-index:6;font-size:clamp(14px,2vw,18px);font-weight:200;
     letter-spacing:.1em;opacity:0;transition:opacity .72s ease,transform .55s var(--ease-out);
     pointer-events:none;text-shadow:0 2px 14px rgba(0,0,0,.95);text-align:center;
-    white-space:pre-line;line-height:1.75;text-wrap:balance}
+    white-space:pre-line;line-height:1.75;text-wrap:balance;overflow-wrap:anywhere}
   #note.on{opacity:1;transform:translate(-50%,0);transition-duration:.22s,.42s}
   #note .meta{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
     color:rgba(232,196,138,.85);margin-top:6px;line-height:1.55}
 
-  /* The plumber's work folio is a quiet progress instrument, not a quest HUD. It stays
-     folded to one small tab until invited open, then records observations without
-     solving them for the player. DOM keeps the text sharp and touch-sized on phones. */
+  /* The plumber's notes are a quiet progress instrument, not a quest HUD. They do not
+     exist until the service photograph gives the player a first connection, then reveal
+     only the next earned inference. DOM keeps the text sharp on phones. */
   #lineFolio{position:fixed;right:max(20px,env(safe-area-inset-right));top:max(20px,env(safe-area-inset-top));
     z-index:9;width:min(310px,calc(100vw - 40px));opacity:0;visibility:hidden;pointer-events:none;
     transform:translateY(-7px);transition:opacity .45s ease,transform .55s var(--ease-out),visibility 0s .55s}
   #lineFolio.on{opacity:1;visibility:visible;transform:translateY(0);transition:opacity .45s ease,
     transform .55s var(--ease-out),visibility 0s}
-  #folioToggle{width:100%;min-height:52px;padding:10px 12px;display:grid;
-    grid-template-columns:1fr auto;grid-template-areas:"kicker count" "title count";
-    align-items:center;text-align:left;pointer-events:auto;cursor:pointer;
+  #folioToggle{width:100%;min-height:58px;padding:9px 12px;display:grid;
+    grid-template-columns:38px 1fr auto;grid-template-areas:"key kicker count" "key title count";
+    column-gap:11px;align-items:center;text-align:left;pointer-events:auto;cursor:pointer;
     border:1px solid rgba(232,196,138,.28);background:rgba(11,11,10,.82);
     color:var(--bone);box-shadow:0 13px 42px rgba(0,0,0,.28);backdrop-filter:blur(9px);
     touch-action:manipulation}
   #folioToggle:hover,#folioToggle:focus-visible{border-color:rgba(232,196,138,.68);outline:none}
+  .folio-keyhint{grid-area:key;display:grid;justify-items:center;gap:3px;color:rgba(232,196,138,.7)}
+  .folio-keyhint span{font:6px var(--mono);letter-spacing:.18em;text-transform:uppercase}
+  .folio-keyhint kbd{width:31px;height:31px;display:grid;place-items:center;border-radius:5px;
+    border:1px solid rgba(242,230,208,.5);border-bottom-width:3px;background:linear-gradient(#29251f,#12110f);
+    box-shadow:0 3px 8px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.12);
+    font:11px var(--mono);letter-spacing:0;color:#f4e6cf}
   .folio-kicker{grid-area:kicker;font:8px var(--mono);letter-spacing:.3em;text-transform:uppercase;
     color:rgba(232,196,138,.64)}
   #folioToggle strong{grid-area:title;margin-top:3px;font-family:var(--display);font-size:16px;
@@ -82,6 +88,7 @@
   #folioSteps li{display:grid;grid-template-columns:23px 1fr;gap:10px;align-items:start;
     font:9px/1.5 var(--mono);letter-spacing:.15em;text-transform:uppercase;
     color:rgba(242,230,208,.42);transition:color .3s ease}
+  #folioSteps li[hidden]{display:none}
   #folioSteps li::before{content:attr(data-n);width:22px;height:22px;display:grid;place-items:center;
     border:1px solid rgba(232,196,138,.22);border-radius:50%;font-size:8px;letter-spacing:0;
     color:rgba(232,196,138,.48)}
@@ -177,7 +184,7 @@
     color:#fffaf0;box-shadow:0 9px 32px rgba(0,0,0,.24),inset 0 0 32px rgba(232,196,138,.05);
     transform:translateY(-1px)}
   .enter:active{transform:translateY(0)}
-  .enter:focus-visible,#prefsToggle:focus-visible,.load label:focus-visible{
+  .enter:focus-visible,#prefsToggle:focus-visible,.music-choose:focus-within,.music-clear:focus-visible{
     outline:1px solid var(--gold-bright);outline-offset:5px}
   .acts{margin-top:54px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
 
@@ -211,10 +218,12 @@
     font-family:var(--mono);font-size:9px;letter-spacing:.34em;text-transform:uppercase;
     color:rgba(242,230,208,.42);transition:color .4s ease}
   #prefsToggle:hover{color:rgba(244,217,168,.92)}
-  #prefs{max-height:0;overflow:hidden;opacity:0;pointer-events:none;visibility:hidden;
+  #prefs{width:min(92vw,720px);max-height:0;overflow:hidden;opacity:0;pointer-events:none;visibility:hidden;
     transition:max-height .6s var(--ease-out),opacity .5s ease,margin .6s var(--ease-out),visibility 0s .6s}
-  #prefs.open{max-height:180px;opacity:1;pointer-events:auto;visibility:visible;margin-top:34px;
+  #prefs.open{max-height:min(52vh,390px);overflow-y:auto;overscroll-behavior:contain;opacity:1;
+    pointer-events:auto;visibility:visible;margin-top:30px;padding:2px 5px 8px;
     transition:max-height .6s var(--ease-out),opacity .5s ease,margin .6s var(--ease-out),visibility 0s}
+  #prefs::-webkit-scrollbar{width:4px}#prefs::-webkit-scrollbar-thumb{background:rgba(232,196,138,.28)}
   .opts{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:center;
     font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
     color:rgba(242,230,208,.55);pointer-events:auto}
@@ -229,13 +238,40 @@
   .opts label{display:flex;align-items:center;gap:8px;cursor:pointer}
   .opts input[type=range]{width:110px;accent-color:#e8c48a}
   .opts input[type=checkbox]{accent-color:#e8c48a}
-  .load{margin-top:26px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-    color:rgba(242,230,208,.4);text-transform:uppercase}
-  .load label{cursor:pointer;pointer-events:auto;border-bottom:1px dotted rgba(232,196,138,.6);color:var(--gold)}
-  .load input{display:none}
+  .music-settings{width:min(100%,620px);margin:23px auto 0;padding:18px 0 0;border:0;
+    border-top:1px solid rgba(232,196,138,.18);font-family:var(--mono)}
+  .music-settings legend{width:100%;padding:0 12px;text-align:center;font-size:9px;letter-spacing:.3em;
+    text-transform:uppercase;color:rgba(232,196,138,.68)}
+  .music-source-options{display:flex;justify-content:center;gap:8px;margin-top:14px}
+  .music-source-options label{position:relative;cursor:pointer}
+  .music-source-options input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .music-source-options span{display:grid;place-items:center;min-width:160px;min-height:38px;padding:8px 16px;
+    border:1px solid rgba(242,230,208,.18);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+    color:rgba(242,230,208,.52);transition:border-color .25s ease,color .25s ease,background .25s ease}
+  .music-source-options input:checked + span{border-color:rgba(232,196,138,.68);color:#f6ead4;
+    background:rgba(232,196,138,.08)}
+  .music-source-options input:focus-visible + span{outline:1px solid var(--gold-bright);outline-offset:4px}
+  .music-source-options input:disabled + span{opacity:.34;cursor:not-allowed}
+  .music-file-row{margin-top:13px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+  .music-choose,.music-clear{position:relative;min-height:38px;padding:10px 13px;cursor:pointer;
+    border:0;border-bottom:1px dotted rgba(232,196,138,.62);background:transparent;
+    font:9px var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--gold)}
+  .music-clear:disabled{opacity:.28;cursor:not-allowed}
+  .music-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;
+    margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+  #musicStatus{display:block;margin-top:11px;font-size:9px;letter-spacing:.11em;text-transform:uppercase;
+    color:rgba(242,230,208,.62);white-space:normal;line-height:1.45;overflow-wrap:anywhere}
+  #musicPrivacy{display:block;margin-top:6px;font-size:9px;letter-spacing:.06em;
+    color:rgba(242,230,208,.58);line-height:1.45;overflow-wrap:anywhere}
   #pause{display:none}
   #pause .title{font-size:clamp(18px,3vw,28px);letter-spacing:.34em}
   #pause .rule{width:min(34vw,220px);margin:18px 0 30px}
+  #pause .acts{margin-top:0}
+  #touchMenu{display:none;position:fixed;right:max(12px,env(safe-area-inset-right));
+    bottom:max(12px,env(safe-area-inset-bottom));z-index:9;min-width:54px;min-height:46px;padding:9px 10px;
+    border:1px solid rgba(232,196,138,.22);background:rgba(6,10,14,.42);backdrop-filter:blur(7px);
+    font:8px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:rgba(242,230,208,.58)}
+  .touch-ui body:not(.play-hud-off) #touchMenu{display:block}
   #drop{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
     background:rgba(4,8,14,.88);font-family:var(--mono);font-size:12px;letter-spacing:.26em;
     text-transform:uppercase;color:var(--gold)}
@@ -325,7 +361,12 @@
     #folioToggle{min-height:50px;padding:9px 11px}
     #lineFolio.open #folioPanel{max-height:min(54vh,380px);overflow:auto;overscroll-behavior:contain}
     .folio-inner{padding:14px 13px}
+    #prefs.open{max-height:48vh;margin-top:20px}
+    .music-source-options span{min-width:0;width:42vw;padding:8px 10px;letter-spacing:.1em}
   }
+  .touch-ui #folioToggle{grid-template-columns:1fr auto;grid-template-areas:"kicker count" "title count";
+    column-gap:8px;min-height:50px}
+  .touch-ui .folio-keyhint{display:none}
   @media (max-height:500px) and (min-width:641px){
     #photoInspect{padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left))}
     .photo-inspect-shell{width:min(96vw,900px);grid-template-columns:minmax(190px,.68fr) 1fr;
@@ -349,21 +390,23 @@
 <div id="reticle" aria-hidden="true"></div>
 <div id="prompt"></div>
 <div id="note" role="status" aria-live="polite"></div>
-<aside id="lineFolio" aria-label="Line three work folio" aria-hidden="true" inert>
-  <button id="folioToggle" type="button" aria-controls="folioPanel" aria-expanded="false" tabindex="-1">
-    <span class="folio-kicker">Work folio</span>
-    <strong>Line Three</strong>
+<aside id="lineFolio" aria-label="West terrace work notes" aria-hidden="true" inert>
+  <button id="folioToggle" type="button" aria-controls="folioPanel" aria-expanded="false"
+    aria-keyshortcuts="F" tabindex="-1">
+    <span class="folio-keyhint" aria-hidden="true"><span>Press</span><kbd>F</kbd></span>
+    <span class="folio-kicker">Notes</span>
+    <strong>West Terrace</strong>
     <span id="folioCount">0 / 4</span>
   </button>
-  <section id="folioPanel" aria-label="Line three progress" aria-hidden="true">
+  <section id="folioPanel" aria-label="West terrace progress" aria-hidden="true">
     <div class="folio-inner">
       <ol id="folioSteps">
-        <li data-step="inspect" data-n="01">Inspect the gauge and feed</li>
-        <li data-step="isolate" data-n="02">Isolate the branch</li>
-        <li data-step="restore" data-n="03">Set working pressure</li>
-        <li data-step="door" data-n="04">Check the manager's door</li>
+        <li data-step="inspect" data-n="01">Find where the three lines surface</li>
+        <li data-step="isolate" data-n="02" hidden>Trace the smaller branch</li>
+        <li data-step="restore" data-n="03" hidden>Return to the old wheel</li>
+        <li data-step="door" data-n="04" hidden>Follow the line that keeps going</li>
       </ol>
-      <p id="folioObservation">Find the service gauge and pipe run on the west side of the terrace.</p>
+      <p id="folioObservation">Three pipes disappear beneath the terrace.</p>
     </div>
   </section>
 </aside>
@@ -396,17 +439,36 @@
        build; the controls are taught on entry instead, and the rest lives behind one
        quiet word. -->
   <button id="prefsToggle" aria-controls="prefs" aria-expanded="false">Settings</button>
-  <div id="prefs" aria-hidden="true">
+  <div id="prefs" aria-hidden="true" inert>
     <div class="opts">
       <label><input type="checkbox" id="optBob"> Head bob</label>
       <label><input type="checkbox" id="optGrain" checked> Film grain</label>
       <label>View <input type="range" id="optFov" min="70" max="105" value="85"></label>
       <label>Look <input type="range" id="optSens" min="40" max="180" value="100"></label>
     </div>
-    <div class="load">
-      <span id="libInfo">&nbsp;</span> &nbsp;·&nbsp;
-      <label>use your own record<input type="file" id="musicFile" accept="audio/*"></label>
-    </div>
+    <fieldset class="music-settings">
+      <legend>Lounge music</legend>
+      <div class="music-source-options">
+        <label>
+          <input type="radio" name="musicSource" id="musicHouse" value="house" checked>
+          <span>House records</span>
+        </label>
+        <label>
+          <input type="radio" name="musicSource" id="musicPersonal" value="personal" disabled>
+          <span>Your music</span>
+        </label>
+      </div>
+      <div class="music-file-row">
+        <label class="music-choose">Choose audio files
+          <input class="music-input" type="file" id="musicFile" accept="audio/*" multiple
+            aria-describedby="musicStatus musicPrivacy">
+        </label>
+        <button class="music-clear" id="musicClear" type="button" disabled>Clear</button>
+      </div>
+      <span id="musicStatus" role="status" aria-live="polite">House collection selected</span>
+      <span id="libInfo" hidden>House collection</span>
+      <span id="musicPrivacy">Selected files stay on this device and are cleared when this tab closes.</span>
+    </fieldset>
   </div>
 </div>
 
@@ -415,11 +477,15 @@
   <span>WASD</span> to wander &nbsp;·&nbsp; <span>Mouse</span> to look &nbsp;·&nbsp;
   <span>E</span> when something invites you closer
 </div>
+<button id="touchMenu" type="button" aria-label="Open pause menu">Menu</button>
 
 <div id="pause" class="screen" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
   <h2 class="title" id="pauseTitle">PAUSED</h2>
   <div class="rule" aria-hidden="true"></div>
-  <button class="enter" id="resumeBtn">Resume</button>
+  <div class="acts">
+    <button class="enter" id="resumeBtn">Resume</button>
+    <button class="enter ghost" id="pausePrefsToggle" type="button" aria-controls="prefs" aria-expanded="false">Settings</button>
+  </div>
 </div>
 
 <div id="teaserFilm" role="dialog" aria-modal="true" aria-label="Gone Away teaser" aria-hidden="true">
@@ -430,7 +496,7 @@
   <div id="teaserLoad" role="status">Preparing the teaser</div>
 </div>
 
-<div id="drop">Drop to load the record</div>
+<div id="drop">Drop audio to play your music</div>
 <div id="rotate" role="dialog" aria-modal="true" aria-label="Landscape orientation recommended">
   <svg viewBox="0 0 48 48"><rect x="14" y="6" width="20" height="36" rx="3"/><path d="M8 30a16 16 0 0 0 32 0"/></svg>
   <span>Landscape is recommended</span>
@@ -510,6 +576,7 @@ let ENV_MAP = null;   // image-based lighting, captured from the finished room a
 // ---------------------------------------------------------------- renderer
 const canvas = document.getElementById('c');
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+document.documentElement.classList.add(isTouch ? 'touch-ui' : 'keyboard-ui');
 const LOW = isTouch;
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:!LOW, powerPreference:'high-performance'});
@@ -2716,7 +2783,7 @@ const fountainWater = new THREE.Group();
   );
   lineIsolator.add(isoGrab);
   scene.add(lineIsolator);
-  interactive(lineIsolator, 'Isolate line three', function(){ isolateLineThree(); });
+  interactive(lineIsolator, 'Isolate the terrace branch', function(){ isolateLineThree(); });
   lineIsolator.userData.isLineIsolator = true;
 
   // the wheel itself — mounted on the riser, facing into the room
@@ -3307,11 +3374,35 @@ function resetSpray(i){
 for(let i = 0; i < spray.n; i++) resetSpray(i);
 
 // ---------------------------------------------------------------- audio
+// These three records are the new sides 1, 2 and 3 of the house collection. After that,
+// the cabinet should feel discovered rather than alphabetized, so every remaining side
+// is shuffled once per cycle. Stable IDs preserve the rearrangement across reshuffles.
+function makeRecordPlaybackOrder(tracks, random){
+  const rng = typeof random === 'function' ? random : Math.random;
+  const openingIds = ['beach-noir-04', 'beach-noir-08', 'beach-noir-12'];
+  const byId = new Map(tracks.map(function(track){ return [track.id, track]; }));
+  const opening = openingIds.map(function(id){ return byId.get(id); });
+  if(opening.some(function(track){ return !track; })) throw new Error('opening record sequence unavailable');
+  const featured = new Set(openingIds);
+  const remainder = tracks.filter(function(track){ return !featured.has(track.id); })
+    .sort(function(a, b){ return a.n - b.n; });
+  const catalog = opening.concat(remainder).map(function(track, index){
+    return Object.assign({}, track, {n:index + 1});
+  });
+  const firstThree = catalog.slice(0, 3);
+  const shuffled = catalog.slice(3);
+  for(let i = shuffled.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    const swap = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = swap;
+  }
+  return firstThree.concat(shuffled);
+}
+
 const Sound = (function(){
   let AC = null, master = null, ambBus = null, fireBus = null, musicBus = null,
       musicFilter = null, waterBus = null, waterGain = null, fireGain = null,
       surfGain = null, delayWet = null;
-  let noiseBuf = null, userBuffer = null, musicSource = null;
+  let noiseBuf = null;
   let started = false, crackleOn = false;
 
   // ---- the record: a streamed <audio> element routed into the music bus ----
@@ -3320,7 +3411,10 @@ const Sound = (function(){
   // streams instead, starts instantly, and still passes through musicFilter so
   // the record feels physically present in the lounge as the player walks around it.
   let trackEl = null, trackNode = null;
-  let library = null, trackIndex = -1, surfaceOn = false;
+  let personalEl = null, personalNode = null;
+  let personalTracks = [], personalIndex = -1, personalLoadGeneration = 0;
+  let personalValidating = false, personalErrorStreak = 0;
+  let library = null, trackIndex = -1, surfaceOn = false, surfaceGeneration = 0, sourceMode = 'house';
 
   function noise(){
     const src = AC.createBufferSource();
@@ -3466,12 +3560,12 @@ const Sound = (function(){
   // Vinyl surface noise, scheduled only while a record is actually turning. This
   // is what makes a clean digital master read as a record playing in a room —
   // more than wow or flutter does, and without touching playbackRate.
-  function surface(){
-    if(!surfaceOn || !AC) return;
+  function surface(generation){
+    if(!surfaceOn || !AC || generation !== surfaceGeneration) return;
     const t = AC.currentTime + 0.01;
     for(let k = 0; k < 2; k++) vinylPop(t + Math.random() * 0.4);
     if(Math.random() < 0.12) burstNoise(musicBus, t, rnd(0.02, 0.06), rnd(600, 1800), 3, rnd(0.01, 0.03));
-    setTimeout(surface, rnd(120, 420));
+    setTimeout(function(){ surface(generation); }, rnd(120, 420));
   }
 
   function ensureTrackNode(){
@@ -3483,8 +3577,112 @@ const Sound = (function(){
     trackNode.connect(musicBus);
     // advance the stack on its own, so the room keeps playing unattended
     trackEl.addEventListener('ended', function(){
-      if(library) api.playTrack(trackIndex + 1);
+      if(sourceMode === 'house' && library) api.nextTrack();
     });
+  }
+
+  function ensurePersonalNode(){
+    if(personalNode) return;
+    personalEl = new Audio();
+    personalEl.preload = 'metadata';
+    personalEl.crossOrigin = 'anonymous';
+    personalNode = AC.createMediaElementSource(personalEl);
+    personalNode.connect(musicBus);
+    personalEl.addEventListener('playing', function(){ personalErrorStreak = 0; });
+    personalEl.addEventListener('ended', function(){
+      if(sourceMode === 'personal' && personalTracks.length){
+        const next = api.nextPersonalTrack();
+        if(next) window.dispatchEvent(new CustomEvent('personaltrackchange', {detail:{name:next.name}}));
+      }
+    });
+    personalEl.addEventListener('error', function(){
+      if(!personalEl.getAttribute('src')) return;
+      const failedIndex = personalIndex;
+      window.dispatchEvent(new CustomEvent('personaltrackerror', {
+        detail:{name:personalTracks[personalIndex] ? personalTracks[personalIndex].name : 'This file'}
+      }));
+      // The first file is validated atomically by loadFiles(). Later failures are
+      // skipped with a strict bound, so one corrupt song cannot strand the playlist.
+      if(personalValidating || sourceMode !== 'personal') return;
+      personalErrorStreak += 1;
+      if(personalTracks.length > 1 && personalErrorStreak < personalTracks.length){
+        setTimeout(function(){
+          if(sourceMode !== 'personal' || personalIndex !== failedIndex) return;
+          const next = api.nextPersonalTrack();
+          if(next) window.dispatchEvent(new CustomEvent('personaltrackchange', {detail:{name:next.name}}));
+        }, 0);
+        return;
+      }
+      pauseMedia(personalEl);
+      setSurface(false);
+      sourceMode = 'house';
+      const resumed = api.startMusic();
+      window.dispatchEvent(new CustomEvent('personalplaylistfailed', {detail:{resumed:resumed}}));
+    });
+  }
+
+  function mediaPlaying(el){
+    return !!(el && el.getAttribute('src') && !el.paused && !el.ended);
+  }
+
+  function setSurface(active){
+    if(!active){
+      if(surfaceOn) surfaceGeneration += 1;
+      surfaceOn = false;
+      return;
+    }
+    if(!surfaceOn){
+      surfaceOn = true;
+      surfaceGeneration += 1;
+      surface(surfaceGeneration);
+    }
+  }
+
+  function playMedia(el){
+    if(!el || !el.getAttribute('src')) return false;
+    const attemptedMode = el === personalEl ? 'personal' : 'house';
+    const p = el.play();
+    if(p && p.catch) p.catch(function(){
+      if(sourceMode !== attemptedMode || !el.paused) return;
+      setSurface(false);
+      window.dispatchEvent(new CustomEvent('musicplayrejected', {detail:{mode:attemptedMode}}));
+    });
+    setSurface(true);
+    return true;
+  }
+
+  function pauseMedia(el){
+    if(el && !el.paused) el.pause();
+  }
+
+  function releasePersonalTracks(){
+    personalTracks.forEach(function(track){
+      if(track.objectUrl) URL.revokeObjectURL(track.src);
+    });
+    personalTracks = [];
+    personalIndex = -1;
+  }
+
+  function selectSource(mode){
+    if(mode !== 'house' && mode !== 'personal') return false;
+    if(mode === 'personal' && !personalTracks.length) return false;
+    if(sourceMode === mode) return true;
+    pauseMedia(sourceMode === 'house' ? trackEl : personalEl);
+    setSurface(false);
+    sourceMode = mode;
+    return true;
+  }
+
+  function loadPersonalIndex(i, autoplay){
+    if(!personalTracks.length) return false;
+    ensurePersonalNode();
+    personalIndex = ((i % personalTracks.length) + personalTracks.length) % personalTracks.length;
+    const track = personalTracks[personalIndex];
+    if(personalEl.getAttribute('src') !== track.src){
+      personalEl.src = track.src;
+      personalEl.load();
+    }
+    return autoplay ? playMedia(personalEl) : true;
   }
 
   const api = {
@@ -3498,8 +3696,13 @@ const Sound = (function(){
         .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(lib){
           if(!lib || !lib.tracks || !lib.tracks.length) throw new Error('empty library');
-          library = lib;
-          if(cb) cb(true, lib);
+          // Boot prefetch and a very fast first interaction can overlap. The first
+          // successful catalogue owns this session's shuffle; a late response must not
+          // reset the queue cursor and make the newly arranged side 1 repeat.
+          if(library){ if(cb) cb(true, library); return; }
+          library = Object.assign({}, lib, {tracks:makeRecordPlaybackOrder(lib.tracks)});
+          trackIndex = -1;
+          if(cb) cb(true, library);
         })
         .catch(function(err){ if(cb) cb(false, null, err); });
     },
@@ -3514,90 +3717,162 @@ const Sound = (function(){
       if(!library || !library.tracks.length) return null;
       init();
       ensureTrackNode();
+      selectSource('house');
+      pauseMedia(personalEl);
       const n = library.tracks.length;
       trackIndex = ((i % n) + n) % n;
       const t = library.tracks[trackIndex];
       trackEl.src = t.src;
-      const p = trackEl.play();
-      if(p && p.catch) p.catch(function(){ /* autoplay gate — retried on next interact */ });
+      playMedia(trackEl);
       musicBus.gain.cancelScheduledValues(AC.currentTime);
-      if(!surfaceOn){ surfaceOn = true; surface(); }
       return t;
     },
+    nextTrack: function(){
+      if(!library || !library.tracks.length) return null;
+      if(trackIndex + 1 >= library.tracks.length){
+        library = Object.assign({}, library, {tracks:makeRecordPlaybackOrder(library.tracks)});
+        trackIndex = -1;
+      }
+      return api.playTrack(trackIndex + 1);
+    },
     pauseTrack: function(){
-      surfaceOn = false;
-      if(trackEl && !trackEl.paused) trackEl.pause();
+      setSurface(false);
+      pauseMedia(trackEl);
     },
     resumeTrack: function(){
-      if(!trackEl || !trackEl.src) return false;
-      const p = trackEl.play();
-      if(p && p.catch) p.catch(function(){});
-      if(!surfaceOn){ surfaceOn = true; surface(); }
-      return true;
+      return playMedia(trackEl);
     },
-    trackPlaying: function(){ return !!(trackEl && trackEl.src && !trackEl.paused); },
+    trackPlaying: function(){
+      return mediaPlaying(sourceMode === 'personal' ? personalEl : trackEl);
+    },
     // playback position and audio-graph health, for tuning and a now-playing readout
     position: function(){
-      if(!trackEl) return null;
+      const el = sourceMode === 'personal' ? personalEl : trackEl;
+      if(!el) return null;
       return {
-        time: trackEl.currentTime, duration: trackEl.duration || 0,
-        paused: trackEl.paused, ready: trackEl.readyState,
+        mode:sourceMode, time:el.currentTime, duration:el.duration || 0,
+        paused:el.paused, ready:el.readyState,
         ctx: AC ? AC.state : 'none',
         busGain: musicBus ? musicBus.gain.value : null,
         cutoffHz: musicFilter ? Math.round(musicFilter.frequency.value) : null
       };
     },
-    loadFile: function(file, cb){
+    // Local files stay local. Object URLs let the media element stream compressed audio
+    // from the device instead of decoding an entire long mix into hundreds of MB of PCM.
+    loadFiles: function(files, cb){
+      const chosen = Array.from(files || []).filter(function(file){ return file && file.name; });
+      if(!chosen.length){ if(cb) cb(false); return; }
       init();
-      const fr = new FileReader();
-      fr.onload = function(){
-        AC.decodeAudioData(fr.result, function(buf){
-          userBuffer = buf;
-          if(cb) cb(true);
-        }, function(){ if(cb) cb(false); });
+      ensurePersonalNode();
+      personalLoadGeneration += 1;
+      const generation = personalLoadGeneration;
+      personalValidating = true;
+      personalErrorStreak = 0;
+      pauseMedia(personalEl);
+      personalEl.removeAttribute('src');
+      personalEl.load();
+      releasePersonalTracks();
+      personalTracks = chosen.map(function(file){
+        return {name:file.name, src:URL.createObjectURL(file), objectUrl:true};
+      });
+      // The last selection owns the callback. Rapid re-selection cannot let an earlier
+      // metadata event overwrite the current filename/status.
+      const ready = function(){
+        if(generation !== personalLoadGeneration) return;
+        personalValidating = false;
+        personalEl.removeEventListener('loadedmetadata', ready);
+        personalEl.removeEventListener('error', failed);
+        if(cb) cb(true, api.personalInfo());
       };
-      fr.readAsArrayBuffer(file);
+      const failed = function(){
+        if(generation !== personalLoadGeneration) return;
+        personalValidating = false;
+        personalEl.removeEventListener('loadedmetadata', ready);
+        personalEl.removeEventListener('error', failed);
+        api.clearPersonal(false);
+        if(cb) cb(false);
+      };
+      personalEl.addEventListener('loadedmetadata', ready, {once:true});
+      personalEl.addEventListener('error', failed, {once:true});
+      loadPersonalIndex(0, false);
+    },
+    loadFile: function(file, cb){
+      api.loadFiles(file ? [file] : [], cb);
     },
     loadUrl: function(url, cb){
       init();
-      fetch(url).then(function(r){ return r.arrayBuffer(); })
-        .then(function(b){ return AC.decodeAudioData(b); })
-        .then(function(buf){ userBuffer = buf; if(cb) cb(true); })
-        .catch(function(){ if(cb) cb(false); });
+      ensurePersonalNode();
+      personalLoadGeneration += 1;
+      personalValidating = false;
+      personalErrorStreak = 0;
+      pauseMedia(personalEl);
+      personalEl.removeAttribute('src'); personalEl.load();
+      releasePersonalTracks();
+      personalTracks = [{name:'Your soundtrack', src:url, objectUrl:false}];
+      loadPersonalIndex(0, false);
+      if(cb) cb(true, api.personalInfo());
     },
-    hasTrack: function(){ return !!userBuffer; },
+    hasTrack: function(){ return personalTracks.length > 0; },
+    hasPersonal: function(){ return personalTracks.length > 0; },
+    sourceMode: function(){ return sourceMode; },
+    personalInfo: function(){
+      return {
+        count:personalTracks.length,
+        index:personalIndex,
+        name:personalTracks[personalIndex] ? personalTracks[personalIndex].name : ''
+      };
+    },
+    selectSource: function(mode, playNow){
+      init();
+      const changed = selectSource(mode);
+      if(!changed) return false;
+      if(musicBus){
+        musicBus.gain.cancelScheduledValues(AC.currentTime);
+        musicBus.gain.setValueAtTime(0.0001, AC.currentTime);
+      }
+      return playNow ? api.startMusic() : true;
+    },
+    nextPersonalTrack: function(){
+      if(!personalTracks.length) return null;
+      const next = personalIndex < 0 ? 0 : (personalIndex + 1) % personalTracks.length;
+      loadPersonalIndex(next, sourceMode === 'personal');
+      return personalTracks[personalIndex];
+    },
+    clearPersonal: function(playHouse){
+      const wasPersonal = sourceMode === 'personal';
+      pauseMedia(personalEl);
+      if(personalEl){ personalEl.removeAttribute('src'); personalEl.load(); }
+      personalLoadGeneration += 1;
+      personalValidating = false;
+      personalErrorStreak = 0;
+      releasePersonalTracks();
+      if(wasPersonal) sourceMode = 'house';
+      setSurface(false);
+      return playHouse && wasPersonal ? api.startMusic() : true;
+    },
     startMusic: function(){
-      if(!AC) return false;
+      if(!AC) init();
       musicBus.gain.cancelScheduledValues(AC.currentTime);
       musicBus.gain.setTargetAtTime(0.85, AC.currentTime, 0.8);
       // Only authored records belong on this turntable: the current side, the shared
       // 65-track album, or a file the player deliberately supplied. If none is ready,
       // remain silent instead of filling the resort with a synthetic fallback tune.
-      if(trackEl && trackEl.src) return api.resumeTrack();
-      if(library && library.tracks.length) return !!api.playTrack(trackIndex < 0 ? 0 : trackIndex);
-      if(userBuffer){
-        musicSource = AC.createBufferSource();
-        musicSource.buffer = userBuffer;
-        musicSource.loop = true;
-        // a touch of wow, so it sits in the room rather than on top of it
-        const w = AC.createOscillator(), wg = AC.createGain();
-        w.frequency.value = 0.35; wg.gain.value = 0.0016;
-        w.connect(wg).connect(musicSource.playbackRate);
-        w.start();
-        musicSource.connect(musicBus);
-        musicSource.start();
-        return true;
+      if(sourceMode === 'personal'){
+        pauseMedia(trackEl);
+        if(!personalTracks.length) return false;
+        if(!personalEl || !personalEl.getAttribute('src')) loadPersonalIndex(personalIndex < 0 ? 0 : personalIndex, false);
+        return playMedia(personalEl);
       }
+      pauseMedia(personalEl);
+      if(trackEl && trackEl.getAttribute('src')) return api.resumeTrack();
+      if(library && library.tracks.length) return !!(trackIndex < 0 ? api.nextTrack() : api.playTrack(trackIndex));
       return false;
     },
     stopMusic: function(){
       if(!AC) return;
       musicBus.gain.setTargetAtTime(0.0001, AC.currentTime, 0.35);
-      api.pauseTrack();
-      if(musicSource){
-        const src = musicSource; musicSource = null;
-        setTimeout(function(){ try{ src.stop(); }catch(e){} }, 900);
-      }
+      setSurface(false);
+      pauseMedia(sourceMode === 'personal' ? personalEl : trackEl);
     },
     needle: function(down){
       if(!AC) return;
@@ -3637,7 +3912,7 @@ const Sound = (function(){
       const dRec = camPos.distanceTo(new THREE.Vector3(-4.4, 1.1, 7.55));
       musicFilter.frequency.setTargetAtTime(
         THREE.MathUtils.clamp(11000 / (1 + dRec * 0.55), 700, 12000), t, 0.3);
-      const sounding = musicSource || (trackEl && trackEl.src && !trackEl.paused);
+      const sounding = mediaPlaying(sourceMode === 'personal' ? personalEl : trackEl);
       musicBus.gain.setTargetAtTime(
         sounding ? Math.min(0.95, 3.4 / (1 + dRec * 0.5)) : 0.0001, t, 0.3);
       const dWater = camPos.distanceTo(new THREE.Vector3(-5.6, 0.6, -10.4));
@@ -3648,6 +3923,8 @@ const Sound = (function(){
       surfGain.gain.setTargetAtTime(0.14 * openness * (seated ? 1.15 : 1), t, 0.5);
     }
   };
+  // Object URLs are revoked on replace/clear. The document teardown releases anything
+  // left at tab close; explicit pagehide cleanup would break back-forward-cache restores.
   return api;
 })();
 
@@ -3682,7 +3959,7 @@ function toggleRecord(){
   // The first catalog fetch can lose a race with an immediate interaction, or fail if
   // the preview server was briefly offline. The physical records are not "empty" in
   // either case: retry the real house catalog at the moment the player reaches for it.
-  if(!Sound.hasLibrary() && !Sound.hasTrack()){
+  if(Sound.sourceMode() === 'house' && !Sound.hasLibrary()){
     note('Opening the house collection.', '65 sides · Beach Noir Revue');
     loadRecordLibrary(function(ok){
       if(ok) toggleRecord();
@@ -3693,7 +3970,7 @@ function toggleRecord(){
   if(Sound.startMusic()){
     recordPlaying = true;
     Sound.needle(true);
-    announceRecord();
+    announceMusic();
   } else {
     recordPlaying = false;
     note('The platter is still.', 'The record library is unavailable.');
@@ -3744,6 +4021,14 @@ function announceRecord(){
   note('“' + t.title + '”  ·  ' + t.artist, meta);
 }
 
+function announceMusic(){
+  if(Sound.sourceMode() === 'house'){ announceRecord(); return; }
+  const personal = Sound.personalInfo();
+  if(!personal.count) return;
+  const position = personal.count > 1 ? (personal.index + 1) + ' of ' + personal.count + ' selected tracks' : 'your record';
+  note(personal.name, position + ' · stays on this device');
+}
+
 // Flipping through the shelf: take the next side off the pile.
 function nextRecord(){
   if(!Sound.hasLibrary()){
@@ -3754,11 +4039,12 @@ function nextRecord(){
     });
     return;
   }
-  const cur = Sound.currentTrack();
-  Sound.playTrack(cur ? cur.n : 0);   // n is 1-based, so this lands on the next side
+  Sound.selectSource('house', false);
+  Sound.nextTrack();
   recordPlaying = true;
   Sound.needle(true);
   announceRecord();
+  syncMusicSettings();
 }
 
 // ---------------------------------------------------------------- line three work order
@@ -3776,7 +4062,7 @@ const LineThree = (function(){
   const count = document.getElementById('folioCount');
   const observation = document.getElementById('folioObservation');
   const stepEls = Array.from(document.querySelectorAll('#folioSteps [data-step]'));
-  let latest = 'Find the service gauge and pipe run on the west side of the terrace.';
+  let latest = 'Three pipes disappear beneath the terrace.';
   let peekTimer = null;
   let hudActive = false;
   let openMode = null;        // null | 'peek' | 'manual'
@@ -3785,6 +4071,13 @@ const LineThree = (function(){
   function completed(){
     return (progress.inspected ? 1 : 0) + (progress.isolated ? 1 : 0) +
       (progress.restored ? 1 : 0) + (progress.doorRevealed ? 1 : 0);
+  }
+  function knownSteps(){
+    if(!progress.archiveSeen) return 0;
+    if(!progress.inspected) return 1;
+    if(!progress.isolated) return 2;
+    if(!progress.restored) return 3;
+    return 4;
   }
   function applyOpen(open){
     if(!folio) return;
@@ -3843,7 +4136,7 @@ const LineThree = (function(){
     resumeMode = null;
   }
   function toggleManual(){
-    if(!hudActive) return;
+    if(!hudActive || !progress.introduced) return;
     cancelPeek();
     if(openMode === 'peek'){
       openMode = 'manual';
@@ -3892,7 +4185,9 @@ const LineThree = (function(){
   }
   function refresh(show){
     if(!progress.introduced) return;
-    if(count) count.textContent = completed() + ' / 4' + (isTouch ? '' : '  ·  F');
+    const doneCount = completed();
+    const visibleCount = knownSteps();
+    if(count) count.textContent = progress.doorRevealed ? '4 / 4' : doneCount + ' / ?';
     if(observation) observation.textContent = latest;
     const states = {
       inspect:progress.inspected,
@@ -3900,11 +4195,20 @@ const LineThree = (function(){
       restore:progress.restored,
       door:progress.doorRevealed
     };
+    const labels = {
+      inspect:'Find where the three lines surface',
+      isolate:'Trace the smaller branch',
+      restore:progress.valveStep === 1 ? 'Settle the needle' : 'Return to the old wheel',
+      door:'Follow the line that keeps going'
+    };
     let currentFound = false;
-    stepEls.forEach(function(el){
+    stepEls.forEach(function(el, index){
+      const known = index < visibleCount;
+      el.hidden = !known;
+      el.textContent = labels[el.dataset.step];
       const done = !!states[el.dataset.step];
       el.classList.toggle('done', done);
-      const current = !done && !currentFound;
+      const current = known && !done && !currentFound;
       el.classList.toggle('current', current);
       if(current){ el.setAttribute('aria-current', 'step'); currentFound = true; }
       else el.removeAttribute('aria-current');
@@ -3922,17 +4226,16 @@ const LineThree = (function(){
   }
 
   function inspect(){
-    introduce();
     if(!progress.inspected){
       progress.inspected = true;
-      write('Gauge: almost no pressure. The branch must be isolated before the main wheel is adjusted.');
+      write('The needle barely moves. A smaller valve sits farther along.');
       pulse(18);
-      note('The gauge is almost dead.', 'line three · feed present · isolate the branch before adjustment');
+      note('The gauge is almost dead.', 'west terrace · almost no pressure');
       return;
     }
     if(progress.restored){
       write('Gauge: working pressure holds. Fountain service is restored.', false);
-      note('Working pressure holds.', 'line three · fountain service restored');
+      note('Working pressure holds.', 'west terrace · fountain service restored');
     } else if(progress.valveStep === 1){
       write('Gauge: pressure is returning, still below the working band.', false);
       note('Pressure is climbing.', 'the main wheel needs one measured adjustment');
@@ -3940,55 +4243,53 @@ const LineThree = (function(){
       write('Gauge: the branch is isolated. The main wheel is safe to move.', false);
       note('The branch is isolated.', 'adjust the main wheel in measured turns');
     } else {
-      write('Gauge: almost no pressure. Isolate the service cock one coupling down the terrace.', false);
-      note('The reading has not changed.', 'isolate line three before touching the main wheel');
+      write('The needle stays low. A smaller branch trembles farther along.', false);
+      note('The reading has not changed.', 'a vibration carries down the smaller pipe');
     }
   }
 
   function isolate(){
-    introduce();
     if(!progress.inspected){
-      write('Trace the feed at the lounge gauge before moving the service cock.', true);
-      note('Do not move it blind.', 'read the pressure gauge first');
+      write('The small valve will not give. Something farther back is still under strain.', true);
+      note('The small valve will not give.', 'a faint shudder travels through the pipe');
       return;
     }
     if(progress.isolated){
       write(progress.restored
-        ? 'The isolator remains seated. Line three is holding.'
+        ? 'The isolator remains seated. The terrace feed is holding.'
         : 'The branch is isolated. Continue at the main wheel.', false);
-      note('The service cock is seated.', progress.restored ? 'line three holds' : 'the main wheel is ready');
+      note('The service cock is seated.', progress.restored ? 'the terrace feed holds' : 'the main wheel is ready');
       return;
     }
     progress.isolated = true;
     Sound.valve(false);
     pulse([18, 35, 18]);
-    write('Branch isolated. The main wheel can now be opened without shocking the old line.');
-    note('Line three is isolated.', 'the main wheel is safe to adjust');
+    write('A dull knock travels back through the pipe.');
+    note('The small valve seats.', 'a vibration returns through the line');
   }
 
   function adjust(){
-    introduce();
     if(!progress.inspected){
-      write('Read the gauge before applying force to the main wheel.', true);
-      note('The wheel resists.', 'read the gauge before applying force');
+      write('The wheel resists. The gauge glass gives no answer.', true);
+      note('The wheel resists.');
       return;
     }
     if(!progress.isolated){
-      write('The live branch must be isolated before the main wheel moves.', true);
-      note('The wheel stays where it is.', 'isolate line three one coupling down the terrace');
+      write('A thinner branch shudders under the strain.', true);
+      note('The wheel stays where it is.', 'a thinner pipe shudders farther along');
       return;
     }
     if(progress.restored){
-      write('Line three remains at working pressure. No further adjustment is needed.', false);
-      note('The setting is steady.', 'line three · working pressure');
+      write('The fountain line remains at working pressure. No further adjustment is needed.', false);
+      note('The setting is steady.', 'fountain line · working pressure');
       return;
     }
     if(progress.valveStep === 0){
       progress.valveStep = 1;
       Sound.valve(false);
       pulse([16, 28, 16]);
-      write('Main wheel: first measured turn. Pressure is returning below the working band.');
-      note('The old wheel yields.', 'pressure returning · one measured turn remains');
+      write('The needle rises, then stalls below the worn mark.');
+      note('Pressure returns.', 'not enough to hold the old mark');
       return;
     }
 
@@ -3999,32 +4300,23 @@ const LineThree = (function(){
     fountainWater.visible = true;
     Sound.valve(true);
     pulse([22, 38, 22]);
-    write('Gauge: working pressure. The spring-fed fountain is running again.');
-    note('Line three holds at working pressure.', 'the fountain answers across the terrace');
+    write('Water runs. One pipe continues behind the manager’s wall.');
+    note('The fountain answers.', 'one pipe keeps going');
   }
 
   function tryDoor(){
-    introduce();
     Sound.doorRattle();
     if(!progress.restored){
-      if(!progress.inspected){
-        write('The manager keeps the key. The lounge service line disappears through this wall.', true);
-        note('Locked. The manager keeps the key.', 'a service line continues through the wall');
-      } else if(!progress.isolated){
-        write('The door remains locked. Line three is still unsafe to adjust.', true);
-        note('The lock does not move.', 'line three still needs isolation');
-      } else {
-        write('The door remains locked. Line three is still below working pressure.', true);
-        note('The lock does not move.', 'restore working pressure at the main wheel');
-      }
+      write('Locked.', true);
+      note('Locked.');
       return;
     }
     if(!progress.doorRevealed){
       progress.doorRevealed = true;
       managerOfficeReveal.visible = true;
       pulse([24, 42, 24]);
-      write('Manager’s office: the door gives only an inch. The resort’s sole satellite phone is inside.');
-      note('The door gives an inch.', 'inside: the resort’s sole satellite phone');
+      write('The door gives an inch. A telephone. No wire.');
+      note('The door gives an inch.', 'a telephone · no wire');
       return;
     }
     write('The opening goes no wider. The satellite phone remains inside the locked office.', false);
@@ -4032,10 +4324,11 @@ const LineThree = (function(){
   }
 
   function archiveSeen(){
+    if(progress.archiveSeen) return;
     progress.archiveSeen = true;
     introduce();
     if(!progress.inspected){
-      write('The 1965 service photograph follows the same terrace run. Find its gauge on the west wall.', true);
+      write('Three pipes disappear beneath the terrace.', true);
     }
   }
 
@@ -4060,7 +4353,6 @@ const LineThree = (function(){
 
   return {
     progress:progress,
-    introduce:introduce,
     inspect:inspect,
     isolate:isolate,
     adjust:adjust,
@@ -4068,7 +4360,7 @@ const LineThree = (function(){
     archiveSeen:archiveSeen,
     suspend:suspend,
     resume:resume,
-    toggleFolio:function(){ introduce(); toggleManual(); },
+    toggleFolio:toggleManual,
     closeFolio:closeManual,
     isFolioOpen:function(){ return !!(folio && folio.classList.contains('open')); },
     wheelTarget:function(){ return progress.valveStep === 0 ? 0 : (progress.valveStep === 1 ? -1.55 : -3.4); },
@@ -4080,16 +4372,15 @@ const LineThree = (function(){
     isolatorTarget:function(){ return progress.isolated ? -Math.PI / 2 : 0; },
     doorTarget:function(){ return progress.doorRevealed ? 0.36 : 0; },
     prompt:function(root){
-      if(root.userData.isLineGauge) return progress.restored ? 'Confirm working pressure' : 'Inspect the gauge and feed';
+      if(root.userData.isLineGauge) return progress.restored ? 'Read the steady gauge' : 'Read the gauge';
       if(root.userData.isLineIsolator){
-        if(!progress.inspected) return 'Inspect the service cock';
-        return progress.isolated ? 'Check the isolator' : 'Isolate line three';
+        if(!progress.inspected) return 'Examine the small valve';
+        return progress.isolated ? 'Check the small valve' : 'Turn the small valve';
       }
       if(root.userData.isValve){
-        if(!progress.inspected) return 'Inspect the main wheel';
-        if(!progress.isolated) return 'Prepare the main wheel';
-        if(progress.restored) return 'Check line three';
-        return progress.valveStep === 0 ? 'Crack the main wheel' : 'Set working pressure';
+        if(!progress.inspected || !progress.isolated) return 'Try the old wheel';
+        if(progress.restored) return 'Check the old line';
+        return progress.valveStep === 0 ? 'Turn the old wheel' : 'Turn it once more';
       }
       if(root.userData.isManagerDoor){
         if(progress.doorRevealed) return 'Look through the opening';
@@ -4213,6 +4504,7 @@ addEventListener('keydown', function(e){
   }
   if(e.code === 'KeyF' && state === 'play'){
     e.preventDefault();
+    if(e.repeat) return;
     LineThree.toggleFolio();
     return;
   }
@@ -4222,7 +4514,12 @@ addEventListener('keydown', function(e){
   }
   keys[e.code] = true;
   if(e.code === 'KeyE'){ interact(); }
-  if(e.code === 'Escape' && seated) standUp();
+  if(e.code === 'Escape' && seated){ standUp(); return; }
+  // Pointer lock is optional in embedded previews. Escape still needs to reach Pause
+  // when the browser declined it, otherwise desktop players cannot get back to Settings.
+  if(e.code === 'Escape' && state === 'play' && !document.pointerLockElement){
+    e.preventDefault(); openPauseMenu();
+  }
 });
 addEventListener('keyup', function(e){ keys[e.code] = false; });
 
@@ -4238,8 +4535,10 @@ function angPerPixel(){
 addEventListener('mousemove', function(e){
   if(state !== 'play' || !document.pointerLockElement) return;
   const a = angPerPixel();
-  player.yaw -= e.movementX * a.x * CFG.lookGainMouse;
-  player.pitch -= e.movementY * a.y * CFG.lookGainMouse;
+  const yawDelta = e.movementX * a.x * CFG.lookGainMouse;
+  const pitchDelta = e.movementY * a.y * CFG.lookGainMouse;
+  player.yaw -= yawDelta;
+  player.pitch -= pitchDelta;
   player.pitch = THREE.MathUtils.clamp(player.pitch, -1.0, 0.95);
 });
 
@@ -4264,10 +4563,14 @@ addEventListener('touchmove', function(e){
       tMove.dx = THREE.MathUtils.clamp((t.clientX - tMove.x) / 60, -1, 1);
       tMove.dy = THREE.MathUtils.clamp((t.clientY - tMove.y) / 60, -1, 1);
     } else if(tLook && t.identifier === tLook.id){
+      const dx = t.clientX - tLook.x;
+      const dy = t.clientY - tLook.y;
       if(Math.hypot(t.clientX - tLook.sx, t.clientY - tLook.sy) > 11) tLook.moved = true;
       const a = angPerPixel();
-      player.yaw -= (t.clientX - tLook.x) * a.x * CFG.lookGainTouch;
-      player.pitch -= (t.clientY - tLook.y) * a.y * CFG.lookGainTouch;
+      const yawDelta = dx * a.x * CFG.lookGainTouch;
+      const pitchDelta = dy * a.y * CFG.lookGainTouch;
+      player.yaw -= yawDelta;
+      player.pitch -= pitchDelta;
       player.pitch = THREE.MathUtils.clamp(player.pitch, -1.0, 0.95);
       tLook.x = t.clientX; tLook.y = t.clientY;
     }
@@ -4752,7 +5055,7 @@ const LegacyTeaser = (function(){
       fadeEl.style.opacity = 1;
       try {
         Sound.init(); Sound.resume();
-        // side one, track one: "Midnight Case on Kalakaua"
+        // The reel keeps the authored house side, regardless of a guest's lounge choice.
         if(Sound.hasLibrary()){ Sound.playTrack(0); recordPlaying = true; }
         else { Sound.startMusic(); recordPlaying = true; }
       } catch(e){ /* silent teaser is still a teaser */ }
@@ -4986,18 +5289,36 @@ function welcomeArrival(done){
   }, 3500);
 }
 
-// Settings live behind one quiet word rather than on the front page.
+// The same compact settings panel moves between the title and Pause, so desktop and
+// touch players can change music without reloading the room or duplicating controls.
+let closePreferences = function(){};
 (function(){
-  const t = document.getElementById('prefsToggle');
+  const triggers = [document.getElementById('prefsToggle'), document.getElementById('pausePrefsToggle')]
+    .filter(Boolean);
   const p = document.getElementById('prefs');
-  if(!t || !p) return;
-  t.addEventListener('click', function(e){
-    e.preventDefault(); e.stopPropagation();
-    p.classList.toggle('open');
-    const open = p.classList.contains('open');
-    t.textContent = open ? 'Close' : 'Settings';
-    t.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if(!triggers.length || !p) return;
+  function setOpen(open, activeTrigger){
+    p.classList.toggle('open', open);
     p.setAttribute('aria-hidden', open ? 'false' : 'true');
+    p.inert = !open;
+    triggers.forEach(function(trigger){
+      const active = open && trigger === activeTrigger;
+      trigger.textContent = active ? 'Close' : 'Settings';
+      trigger.setAttribute('aria-expanded', active ? 'true' : 'false');
+    });
+  }
+  closePreferences = function(){ setOpen(false, null); };
+  triggers.forEach(function(trigger){
+    trigger.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      const host = trigger.closest('.screen');
+      const wasOpenHere = p.classList.contains('open') && p.parentElement === host;
+      if(p.parentElement !== host){
+        setOpen(false, null);
+        host.appendChild(p);
+      }
+      setOpen(!wasOpenHere, trigger);
+    });
   });
 })();
 
@@ -5007,6 +5328,7 @@ function enter(){
   // to three times. Latch the transition so entering remains one clean gesture.
   if(Teaser.running() || enterTransition || state === 'play') return;
   enterTransition = true;
+  closePreferences();
   const fromScreen = pauseEl.style.display === 'flex' ? pauseEl : startEl;
   const firstArrival = fromScreen === startEl && !welcomeShown;
   fromScreen.classList.add('leaving');
@@ -5039,13 +5361,11 @@ function enter(){
         if(state === 'play'){
           setPlayHudVisible(true);
           showTutor();
-          LineThree.introduce();
         }
       });
     } else {
       setPlayHudVisible(true);
       if(!tutorShown) showTutor();
-      LineThree.introduce();
     }
     enterTransition = false;
   }, 820);
@@ -5099,24 +5419,142 @@ if(isTouch){
   if(k) k.innerHTML = '<span>Drag left</span> to wander &nbsp;·&nbsp; <span>Drag right</span> to look &nbsp;·&nbsp; <span>Tap</span> when something invites you closer';
 }
 
+function openPauseMenu(){
+  if(state !== 'play') return;
+  state = 'paused';
+  closePreferences();
+  pauseEl.style.display = 'flex';
+  setPlayHudVisible(false);
+  const resume = document.getElementById('resumeBtn');
+  if(resume) resume.focus();
+  setPrompt('', false);
+}
+
 document.addEventListener('pointerlockchange', function(){
-  if(state === 'play' && !document.pointerLockElement && !isTouch){
-    state = 'paused';
-    pauseEl.style.display = 'flex';
-    setPlayHudVisible(false);
-    const resume = document.getElementById('resumeBtn');
-    if(resume) resume.focus();
-    setPrompt('', false);
+  if(state === 'play' && !document.pointerLockElement && !isTouch) openPauseMenu();
+});
+const touchMenu = document.getElementById('touchMenu');
+if(touchMenu){
+  ['pointerdown', 'touchstart', 'touchend'].forEach(function(type){
+    touchMenu.addEventListener(type, function(e){ e.stopPropagation(); }, {passive:true});
+  });
+  touchMenu.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation(); openPauseMenu();
+  });
+}
+
+function syncMusicSettings(message){
+  const house = document.getElementById('musicHouse');
+  const personal = document.getElementById('musicPersonal');
+  const clear = document.getElementById('musicClear');
+  const status = document.getElementById('musicStatus');
+  const info = Sound.personalInfo();
+  const personalReady = info.count > 0;
+  const mode = Sound.sourceMode();
+  if(house) house.checked = mode === 'house';
+  if(personal){
+    personal.disabled = !personalReady;
+    personal.checked = mode === 'personal' && personalReady;
   }
+  if(clear) clear.disabled = !personalReady;
+  if(!status) return;
+  if(message){ status.textContent = message; return; }
+  if(mode === 'personal' && personalReady){
+    status.textContent = info.count === 1 ? info.name + ' ready' :
+      info.count + ' tracks ready · ' + info.name;
+    return;
+  }
+  const lib = document.getElementById('libInfo');
+  status.textContent = (lib && lib.textContent ? lib.textContent : 'House collection') + ' selected';
+}
+
+function usableAudioFiles(files){
+  return Array.from(files || []).filter(function(file){
+    return file && (file.type.indexOf('audio/') === 0 || /\.(aac|aif|aiff|flac|m4a|mp3|oga|ogg|opus|wav|webm)$/i.test(file.name));
+  });
+}
+
+function loadPersonalMusic(files){
+  const chosen = usableAudioFiles(files);
+  if(!chosen.length){
+    syncMusicSettings('Choose an audio file to use your own music.');
+    return;
+  }
+  syncMusicSettings(chosen.length === 1 ? 'Preparing your record…' : 'Preparing ' + chosen.length + ' tracks…');
+  Sound.loadFiles(chosen, function(ok){
+    if(!ok){
+      if(recordPlaying && !Sound.startMusic()) recordPlaying = false;
+      syncMusicSettings('That audio could not be played. House records remain selected.');
+      return;
+    }
+    Sound.selectSource('personal', recordPlaying);
+    syncMusicSettings();
+    if(state === 'play' && recordPlaying) announceMusic();
+  });
+}
+
+const musicFile = document.getElementById('musicFile');
+if(musicFile) musicFile.addEventListener('change', function(e){
+  const chosen = Array.from(e.target.files || []);
+  e.target.value = ''; // selecting the same file again must still fire change
+  loadPersonalMusic(chosen);
 });
 
-document.getElementById('musicFile').addEventListener('change', function(e){
-  if(e.target.files && e.target.files[0]){
-    Sound.loadFile(e.target.files[0], function(ok){
-      note(ok ? 'Record loaded. Drop the needle in the lounge.' : 'That file would not decode.');
+const musicHouse = document.getElementById('musicHouse');
+if(musicHouse) musicHouse.addEventListener('change', function(){
+  if(!musicHouse.checked) return;
+  if(!Sound.hasLibrary()){
+    syncMusicSettings('Opening the house collection…');
+    loadRecordLibrary(function(ok){
+      if(!ok){ syncMusicSettings('The house collection could not be opened.'); return; }
+      Sound.selectSource('house', recordPlaying);
+      syncMusicSettings();
+      if(state === 'play' && recordPlaying) announceMusic();
     });
+    return;
   }
+  Sound.selectSource('house', recordPlaying);
+  syncMusicSettings();
+  if(state === 'play' && recordPlaying) announceMusic();
 });
+
+const musicPersonal = document.getElementById('musicPersonal');
+if(musicPersonal) musicPersonal.addEventListener('change', function(){
+  if(!musicPersonal.checked || !Sound.hasPersonal()) return;
+  Sound.selectSource('personal', recordPlaying);
+  syncMusicSettings();
+  if(state === 'play' && recordPlaying) announceMusic();
+});
+
+const musicClear = document.getElementById('musicClear');
+if(musicClear) musicClear.addEventListener('click', function(e){
+  e.preventDefault(); e.stopPropagation();
+  Sound.clearPersonal(recordPlaying);
+  syncMusicSettings('Your music was cleared · house records selected');
+  if(state === 'play' && recordPlaying) announceMusic();
+});
+
+addEventListener('personaltrackchange', function(){
+  syncMusicSettings();
+  if(state === 'play' && recordPlaying) announceMusic();
+});
+addEventListener('personaltrackerror', function(e){
+  const name = e.detail && e.detail.name ? e.detail.name : 'That file';
+  syncMusicSettings(name + ' could not be played.');
+});
+addEventListener('personalplaylistfailed', function(e){
+  recordPlaying = !!(e.detail && e.detail.resumed);
+  syncMusicSettings(recordPlaying ? 'Your playlist ended · house records resumed' :
+    'Your playlist could not continue · house records selected');
+  if(state === 'play') note(recordPlaying ? 'The house record returns.' : 'The platter is still.');
+});
+addEventListener('musicplayrejected', function(e){
+  recordPlaying = false;
+  const personal = e.detail && e.detail.mode === 'personal';
+  syncMusicSettings((personal ? 'Your music is ready' : 'House records ready') + ' · use the turntable to begin');
+  if(state === 'play') note('The needle did not catch.', 'try the turntable once more');
+});
+
 ['dragenter', 'dragover'].forEach(function(ev){
   addEventListener(ev, function(e){ e.preventDefault(); dropEl.style.display = 'flex'; });
 });
@@ -5124,14 +5562,11 @@ document.getElementById('musicFile').addEventListener('change', function(e){
   addEventListener(ev, function(e){ e.preventDefault(); dropEl.style.display = 'none'; });
 });
 addEventListener('drop', function(e){
-  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-  if(f) Sound.loadFile(f, function(ok){
-    note(ok ? 'Record loaded.' : 'That file would not decode.');
-    if(ok && recordPlaying){ Sound.stopMusic(); setTimeout(function(){ Sound.startMusic(); }, 400); }
-  });
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if(files && files.length) loadPersonalMusic(files);
 });
 
-if(CFG.musicUrl) Sound.loadUrl(CFG.musicUrl, function(){});
+if(CFG.musicUrl) Sound.loadUrl(CFG.musicUrl, function(){ syncMusicSettings(); });
 
 // Fetch the album catalog up front so the record player has something on it the
 // first time it is used. If this fails, the environmental beds remain but the platter
@@ -5142,6 +5577,7 @@ if(CFG.libraryUrl){
     // Tucked inside Settings now. The album's length is not something a title screen
     // should be announcing.
     if(el) el.textContent = ok ? lib.title : 'serve over http for the album';
+    syncMusicSettings();
   });
 }
 
