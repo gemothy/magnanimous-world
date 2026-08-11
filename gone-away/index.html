@@ -1308,7 +1308,10 @@ loadCommissionedTexture('assets/materials/carved-teak.jpg', 2, 3, function(t){
 // ---------------------------------------------------------------- lights
 const MOON_POS = new THREE.Vector3(26, 96, -300);
 const MOON_DIR = MOON_POS.clone().normalize();
-const FIRE_POS = new THREE.Vector3(0, 0.95, -2);
+// Pull the hearth toward the lagoon. Besides giving the fire a stronger
+// relationship to the water, this turns the former pinch point between the hearth and
+// coffee table into a real circulation aisle.
+const FIRE_POS = new THREE.Vector3(0, 0.95, -3.4);
 
 // Sky fill carries the blue hour indoors. At 0.40 with a near-black sky the interior
 // had almost no ambient and everything fell to silhouette; the resort should read as
@@ -1355,8 +1358,8 @@ scene.add(fireHearthFill);
 // floor. It is deliberately shadowless and short-range: enough amber to reveal the
 // woven roof and round rafters above the hearth without flattening the blue-hour room.
 const roofFireBounce = new THREE.SpotLight(0xffa56c, 0.42, 8, Math.PI * 0.38, 0.72, 1.7);
-roofFireBounce.position.set(0, 2.15, -1.95);
-roofFireBounce.target.position.set(0, 6.45, -1.65);
+roofFireBounce.position.set(FIRE_POS.x, 2.15, FIRE_POS.z + 0.05);
+roofFireBounce.target.position.set(FIRE_POS.x, 6.45, FIRE_POS.z + 0.35);
 scene.add(roofFireBounce, roofFireBounce.target);
 
 // Every hanging lantern gets a real light. Previously only two of the six did, so
@@ -2177,7 +2180,7 @@ lantern(-2.2, 3.9, 6.8, 1.55, 9.0); lantern(2.2, 3.9, 6.8, 1.55, 9.0);
 lantern(-4.4, 2.45, 7.25, 3.30, 8.0);
 
 // Grounding pools under everything heavy that meets the floor.
-contactShadow(0, -2, 4.6, 4.6, 0.018, 0.92);        // firepit
+contactShadow(FIRE_POS.x, FIRE_POS.z, 4.6, 4.6, 0.018, 0.92); // firepit
 contactShadow(-4.4, 7.6, 4.0, 2.0, 0.016, 0.78);    // record console
 contactShadow(6.3, 7.5, 6.0, 2.2, 0.016, 0.78);     // bar
 contactShadow(-2.5, 7.5, 1.4, 1.4, 0.016, 0.60);    // LP stack
@@ -2187,21 +2190,24 @@ contactShadow(-2.5, 7.5, 1.4, 1.4, 0.016, 0.60);    // LP stack
 
 // ---------------------------------------------------------------- firepit
 (function(){
-  cyl(1.28, 1.42, 0.5, 14, M.stone, 0, 0.25, -2);
-  cyl(1.02, 0.86, 0.55, 14, M.bronze, 0, 0.75, -2);
+  cyl(1.28, 1.42, 0.5, 14, M.stone, FIRE_POS.x, 0.25, FIRE_POS.z);
+  cyl(1.02, 0.86, 0.55, 14, M.bronze, FIRE_POS.x, 0.75, FIRE_POS.z);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.09, 8, 22), M.bronze);
-  rim.rotation.x = Math.PI / 2; rim.position.set(0, 1.02, -2);
+  rim.rotation.x = Math.PI / 2; rim.position.set(FIRE_POS.x, 1.02, FIRE_POS.z);
   rim.castShadow = true; scene.add(rim);
   const embers = new THREE.Mesh(new THREE.CircleGeometry(0.9, 18), M.emberMat);
-  embers.rotation.x = -Math.PI / 2; embers.position.set(0, 0.86, -2);
+  embers.rotation.x = -Math.PI / 2; embers.position.set(FIRE_POS.x, 0.86, FIRE_POS.z);
   scene.add(embers);
   // a few logs
   for(let i = 0; i < 4; i++){
     const a = i / 4 * Math.PI * 2 + 0.4;
-    const l = cyl(0.09, 0.11, 1.1, 6, M.dark, Math.cos(a) * 0.3, 0.95, -2 + Math.sin(a) * 0.3);
+    const l = cyl(0.09, 0.11, 1.1, 6, M.dark,
+      FIRE_POS.x + Math.cos(a) * 0.3, 0.95, FIRE_POS.z + Math.sin(a) * 0.3);
     l.rotation.z = Math.PI / 2 - 0.2; l.rotation.y = a;
   }
-  blocker(0, -2, 1.7);
+  // 1.5 still clears the 1.42m stone base once the player's own 0.34m radius is added,
+  // but no longer invents another quarter-metre of invisible hearth around it.
+  blocker(FIRE_POS.x, FIRE_POS.z, 1.5);
 })();
 
 // ---------------------------------------------------------------- seating
@@ -2278,7 +2284,9 @@ sofa( 0.0,  2.4,  0);
   stem.castShadow = false;
   cyl(0.18, 0.18, 0.045, 12, M.bronze, 0.38, 0.62, 0.84);
   void glass; void drink; void bowl; void stem;
-  blocker(0, 0.5, 1.2);
+  // The player's radius expands this to 1.39m, just beyond the table's 1.30m corner
+  // diagonal. That keeps collision honest without closing the new lagoon-side aisle.
+  blocker(0, 0.5, 1.05);
 })();
 
 // ---------------------------------------------------------------- record player
@@ -2388,8 +2396,8 @@ const tonearm = new THREE.Group();
 // One source of truth joins each image to its lore, fallback, prompt and physical place.
 // The old wall kept those in separate arrays, so four of six captions could describe the
 // wrong photograph. Distribution also makes the room itself the archive: Garmus belongs
-// with his records, the pool and water system live along the service route, and the jetty
-// image waits at the lagoon threshold.
+// with his records, while the two quieter side-wall bays hold paired chapters with enough
+// space to be approached and read on either desktop or mobile.
 const ARCHIVE_ENTRIES = [
   {
     id:'garmus', src:'assets/archive/garmus-campoza-portrait.jpg', fallback:1,
@@ -2407,25 +2415,25 @@ const ARCHIVE_ENTRIES = [
     id:'lounge', src:'assets/archive/original-lounge-1965.jpg', fallback:4,
     title:'The lounge, c. 1965.', meta:'Garmus’s records remain beside the original turntable',
     prompt:'Examine the lounge photograph', alt:'The Magnanimis lounge and record cabinet in 1965',
-    pos:[9.21,2.90,4.05], yaw:-Math.PI/2, size:[0.78,0.98]
+    pos:[9.21,2.90,4.85], yaw:-Math.PI/2, size:[0.78,0.98]
   },
   {
     id:'pool', src:'assets/archive/spring-pool-1965.jpg', fallback:2,
     title:'The spring-fed pool, c. 1965.', meta:'Decades later, a guest is found drowned here',
     prompt:'Examine the pool photograph', alt:'The spring-fed Magnanimis pool in 1965',
-    pos:[-9.21,2.90,3.95], yaw:Math.PI/2, size:[0.78,0.98]
+    pos:[-9.21,2.90,4.85], yaw:Math.PI/2, size:[0.78,0.98]
   },
   {
     id:'water', src:'assets/archive/freshwater-lines-1965.jpg', fallback:5,
     title:'Garmus’s original water system.', meta:'The islanders still maintain it with ritual precision',
     prompt:'Examine the service photograph', alt:'Garmus and an engineer inspecting the resort water system',
-    pos:[-7.70,2.34,-4.11], yaw:0, size:[0.64,0.80], hit:[0.92,1.16]
+    pos:[-9.21,2.82,3.05], yaw:Math.PI/2, size:[0.64,0.80], hit:[0.92,1.16]
   },
   {
     id:'jetty', src:'assets/archive/arrival-jetty-1965.jpg', fallback:3,
     title:'Arrivals at the jetty, c. 1965.', meta:'No tower. No cable. Nothing — even then',
     prompt:'Examine the jetty photograph', alt:'Garmus welcoming guests at the Magnanimis jetty',
-    pos:[7.70,2.34,-4.11], yaw:0, size:[0.64,0.80], hit:[0.92,1.16]
+    pos:[9.21,2.82,3.05], yaw:-Math.PI/2, size:[0.64,0.80], hit:[0.92,1.16]
   }
 ];
 const ARCHIVE_SEEN = new Set();
@@ -2718,45 +2726,106 @@ const fountainWater = new THREE.Group();
   }
 
   const PR = 0.09;
-  pipeRun([-8.9, 0.00, -5.0], [-8.9, 3.40, -5.0], PR);    // riser at the wall
-  pipeRun([-8.9, 1.15, -11.0], [-8.9, 1.15, -4.6], PR);   // run along the terrace
-  pipeRun([-9.0, 1.15, -10.6], [-5.4, 1.15, -10.6], PR);  // spur out to the fountain
 
-  // gauge, turned to face anyone standing at the valve
-  const gauge = cyl(0.14, 0.14, 0.06, 14, M.brass, -8.94, 2.1, -5.0);
-  gauge.rotation.z = Math.PI / 2;
-  const dial = new THREE.Group();
-  dial.position.set(-8.86, 2.1, -5.0);
-  dial.rotation.y = Math.PI / 2;
-  const face = new THREE.Mesh(
-    new THREE.CircleGeometry(0.11, 28),
-    new THREE.MeshStandardMaterial({color:0x91866e, roughness:0.78})
-  );
-  dial.add(face);
-  for(let i = 0; i < 9; i++){
-    const a = -2.2 + i / 8 * 1.85;
-    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.006, i % 4 === 0 ? 0.024 : 0.016, 0.004), M.dark);
-    tick.position.set(Math.cos(a) * 0.082, Math.sin(a) * 0.082, 0.004);
-    tick.rotation.z = a - Math.PI / 2;
-    dial.add(tick);
+  // Three distinct feeds now disappear through the deck. The old construction had three
+  // pipeRun() calls, but they were merely three pieces of one branched line — only one of
+  // them actually entered the ground. Spacing the drops along the wall gives each a clean
+  // silhouette from the lounge, while the long run becomes their shared header.
+  const DROP_Z = [-5.50, -6.00, -6.50];
+  pipeRun([-8.9, -0.35, DROP_Z[0]], [-8.9, 1.15, DROP_Z[0]], PR);
+  pipeRun([-8.9, -0.35, DROP_Z[1]], [-8.9, 3.40, DROP_Z[1]], PR);
+  pipeRun([-8.9, -0.35, DROP_Z[2]], [-8.9, 1.15, DROP_Z[2]], PR);
+  pipeRun([-8.9, 1.15, -11.0], [-8.9, 1.15, -4.6], PR);   // shared terrace header
+  pipeRun([-9.0, 1.15, -10.6], [-5.4, 1.15, -10.6], PR);  // fountain feed
+
+  // Cast-bronze deck flanges make the three penetrations unmistakable and stop the tubes
+  // looking as though they simply terminate on top of the boards.
+  DROP_Z.forEach(function(z){
+    const flange = cyl(0.17, 0.17, 0.055, 18, M.bronze, -8.9, 0.025, z);
+    flange.castShadow = false;
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.018, 6, 18), M.brass);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.set(-8.9, 0.058, z);
+    scene.add(collar);
+  });
+
+  // A proper cased pressure instrument, pulled clear of the carved pillar and angled
+  // toward the natural diagonal approach. The ivory face is deliberately graphic enough
+  // to survive night lighting and a phone-sized viewport, while the moving needle remains
+  // real geometry so the restored line visibly settles.
+  const gaugeFaceCanvas = document.createElement('canvas');
+  gaugeFaceCanvas.width = gaugeFaceCanvas.height = 256;
+  const gx = gaugeFaceCanvas.getContext('2d');
+  gx.fillStyle = '#d8cba8';
+  gx.beginPath(); gx.arc(128, 128, 120, 0, Math.PI * 2); gx.fill();
+  gx.strokeStyle = '#30291f';
+  gx.lineCap = 'round';
+  for(let i = 0; i <= 12; i++){
+    const a = -Math.PI * 0.76 + i / 12 * Math.PI * 1.52;
+    const major = i % 3 === 0;
+    const r0 = major ? 78 : 86;
+    gx.lineWidth = major ? 6 : 3;
+    gx.beginPath();
+    gx.moveTo(128 + Math.cos(a) * r0, 128 - Math.sin(a) * r0);
+    gx.lineTo(128 + Math.cos(a) * 103, 128 - Math.sin(a) * 103);
+    gx.stroke();
   }
-  const needle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.073, 0.006), M.dark);
-  needle.position.y = 0.034;
+  gx.fillStyle = '#30291f';
+  gx.textAlign = 'center';
+  gx.font = '600 15px Georgia, serif';
+  gx.fillText('MAGNANIMIS', 128, 92);
+  gx.font = '11px Arial, sans-serif';
+  gx.letterSpacing = '2px';
+  gx.fillText('WATER PRESSURE', 128, 111);
+  gx.font = '13px Georgia, serif';
+  gx.fillText('0', 59, 176); gx.fillText('30', 128, 48); gx.fillText('60', 197, 176);
+  const gaugeFaceTexture = new THREE.CanvasTexture(gaugeFaceCanvas);
+  gaugeFaceTexture.encoding = THREE.sRGBEncoding;
+  gaugeFaceTexture.anisotropy = maxAniso;
+
+  const gaugeRoot = new THREE.Group();
+  gaugeRoot.position.set(-8.58, 2.18, -5.82);
+  gaugeRoot.rotation.y = 1.15;
+  const gaugeCase = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.11, 32), M.bronze);
+  gaugeCase.rotation.x = Math.PI / 2;
+  gaugeCase.position.z = -0.018;
+  gaugeCase.castShadow = true;
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(0.188, 40),
+    new THREE.MeshStandardMaterial({map:gaugeFaceTexture, color:0xffffff, roughness:0.68})
+  );
+  face.position.z = 0.043;
+  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.198, 0.024, 8, 36), M.brass);
+  bezel.position.z = 0.052;
+  const needle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.122, 0.008), M.dark);
+  needle.position.y = 0.054;
   gaugeNeedle.add(needle);
-  const needleHub = new THREE.Mesh(new THREE.CircleGeometry(0.014, 12), M.brass);
+  const needleHub = new THREE.Mesh(new THREE.CircleGeometry(0.022, 18), M.brass);
   needleHub.position.z = 0.008;
   gaugeNeedle.add(needleHub);
   gaugeNeedle.rotation.z = 0.65;
-  gaugeNeedle.position.z = 0.009;
-  dial.add(gaugeNeedle);
-  scene.add(dial);
+  gaugeNeedle.position.z = 0.057;
+  const glass = new THREE.Mesh(
+    new THREE.CircleGeometry(0.177, 36),
+    new THREE.MeshPhysicalMaterial({color:0xfff1ce, transparent:true, opacity:0.10, roughness:0.12, depthWrite:false})
+  );
+  glass.position.z = 0.066;
+  gaugeRoot.add(gaugeCase, face, bezel, gaugeNeedle, glass);
+  scene.add(gaugeRoot);
+  pipeRun([-8.90, 2.18, -6.00], [-8.66, 2.18, -5.86], 0.045);
 
-  // The dial is physically small, so give inspection a generous independent target.
-  // It is separate from the wheel: reading the system before touching it is the first
-  // piece of plumbing, not a caption attached to the same click.
-  lineGaugeTarget.position.set(-8.74, 2.10, -5.0);
+  // A restrained fixed task light catches the dial and all three floor collars without
+  // turning the service corner into another decorative lantern pool.
+  const gaugeTaskLight = new THREE.PointLight(0xffc887, 0.34, 2.8, 2);
+  gaugeTaskLight.position.set(-7.95, 2.52, -5.18);
+  scene.add(gaugeTaskLight);
+
+  // Reading the system is still its own interaction, but the target now follows the
+  // visible face closely instead of extending through the pillar around a tiny brass edge.
+  lineGaugeTarget.position.copy(gaugeRoot.position);
+  lineGaugeTarget.rotation.y = gaugeRoot.rotation.y;
   const gaugeGrab = new THREE.Mesh(
-    new THREE.BoxGeometry(0.54, 0.58, 0.72),
+    new THREE.BoxGeometry(0.60, 0.62, 0.40),
     new THREE.MeshBasicMaterial({visible:false})
   );
   lineGaugeTarget.add(gaugeGrab);
@@ -2767,7 +2836,7 @@ const fountainWater = new THREE.Group();
   // A quarter-turn service cock isolates the branch before the main wheel is moved.
   // It sits one coupling down the terrace so gauge, isolator and wheel remain three
   // distinct, comfortably tappable stations even on a phone.
-  lineIsolator.position.set(-8.78, 1.15, -6.25);
+  lineIsolator.position.set(-8.78, 1.15, -7.15);
   lineIsolator.rotation.y = -Math.PI / 2;
   const isoBody = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.16, 12), M.bronze);
   isoBody.rotation.x = Math.PI / 2;
@@ -2787,7 +2856,7 @@ const fountainWater = new THREE.Group();
   lineIsolator.userData.isLineIsolator = true;
 
   // the wheel itself — mounted on the riser, facing into the room
-  valveWheel.position.set(-8.78, 1.15, -5.0);
+  valveWheel.position.set(-8.78, 1.15, -6.0);
   valveWheel.rotation.y = -Math.PI / 2;
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.045, 8, 18), M.brass);
   valveSpin.add(rim);
@@ -2801,7 +2870,7 @@ const fountainWater = new THREE.Group();
   valveSpin.add(hub);
   valveWheel.add(valveSpin);
   scene.add(valveWheel);
-  blocker(-8.9, -5.0, 0.55);
+  blocker(-8.9, -6.0, 0.55);
   // Generous hit volume. The wheel is a thin torus with spokes, and playtesting found
   // it only targeted within about a 6-degree pitch window — far too fussy for the
   // object the whole story turns on. Invisible material, so it never draws.
@@ -4952,7 +5021,7 @@ const LegacyTeaser = (function(){
     },
     { // firelight. no caption — the room should be allowed to speak once.
       a: V(3.6, 1.5, 2.6),  b: V(1.5, 1.32, -0.5),
-      la: V(0, 1.0, -2),    lb: V(0, 0.92, -2),
+      la: V(0, 1.0, -3.4),  lb: V(0, 0.92, -3.4),
       dur: 7.5
     },
     { // Garmus's turntable — the pitch calls this the emotional core. Camera is above
@@ -5783,13 +5852,14 @@ const CAPTURE = (function(){
   const SHOTS = {
     hero:    { pos:[-2.9, 1.70,  4.4], at:[ 2.6, 1.35, -4.2], hfov:72 },
     seaward: { pos:[ 0.0, 1.68,  1.0], at:[ 0.0, 1.55,-20.0], hfov:85 },
-    firepit: { pos:[-1.2, 1.68,  2.2], at:[ 1.4, 0.90, -1.2], hfov:85 },
+    firepit: { pos:[-1.2, 1.68,  2.2], at:[ 1.2, 0.90, -2.8], hfov:85 },
     terrace: { pos:[ 0.5, 1.68, -5.5], at:[ 1.0, 1.40,-20.0], hfov:85 },
     archive: { pos:[ 1.2, 1.72, -0.2], at:[ 1.2, 3.05,  8.1], hfov:92 },
-    archiveWest:  { pos:[-6.3, 1.72,  3.9], at:[-9.2, 2.90,  3.9], hfov:66 },
-    archiveEast:  { pos:[ 6.3, 1.72,  4.0], at:[ 9.2, 2.90,  4.0], hfov:66 },
-    archiveLines: { pos:[-7.7, 1.66, -1.2], at:[-7.7, 2.34, -4.1], hfov:62 },
-    archiveJetty: { pos:[ 7.7, 1.66, -1.2], at:[ 7.7, 2.34, -4.1], hfov:62 },
+    archiveWest:  { pos:[-6.3, 1.72,  3.9], at:[-9.2, 2.88,  3.95], hfov:66 },
+    archiveEast:  { pos:[ 6.3, 1.72,  3.9], at:[ 9.2, 2.88,  3.95], hfov:66 },
+    archiveLines: { pos:[-6.7, 1.66,  2.6], at:[-9.2, 2.82,  3.05], hfov:62 },
+    archiveJetty: { pos:[ 6.7, 1.66,  2.6], at:[ 9.2, 2.82,  3.05], hfov:62 },
+    service: { pos:[-6.5, 1.70, -4.8], at:[-8.72, 1.72, -6.0], hfov:70 },
     record:  { pos:[-2.7, 1.64,  5.0], at:[-4.1, 1.22,  7.5], hfov:66 },
     // Exterior. The build has only ever been reviewed from inside, which is exactly how
     // the pavilion got to be an unlit slab with a flat back — nobody had a framing that
