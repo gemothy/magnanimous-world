@@ -73,6 +73,7 @@
   var audioMix = loadAudioMix();
   var soundEnabled = audioMix.cues > 0;
   var reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var viewSettings = loadViewSettings();
   var welcomeMode = false;
   var agentsArrived = false;
   var viewerStatsVisible = localStorage.getItem('gone-away-demo-stats') !== 'hidden';
@@ -179,6 +180,13 @@
     return defaults;
   }
 
+  function loadViewSettings(){
+    if(window.GoneAwayViewSettings && window.GoneAwayViewSettings.get){
+      return window.GoneAwayViewSettings.get();
+    }
+    return {fov:85,sensitivity:100};
+  }
+
   function buildUI(){
     root = document.createElement('div');
     root.id = 'eventDemoRoot';
@@ -208,6 +216,8 @@
           '<label><span>Game sounds <output id="eventCuesValue"></output></span><input id="eventCuesLevel" aria-label="Game sounds volume" data-mix="cues" type="range" min="0" max="100" step="1"></label>',
         '</fieldset>',
         '<fieldset><legend>View</legend>',
+          '<label><span>Field of view <output id="eventFovValue" for="eventFovLevel"></output></span><input id="eventFovLevel" aria-label="Field of view" aria-describedby="eventFovValue" type="range" min="70" max="105" step="1"></label>',
+          '<label><span>Sensitivity <output id="eventSensitivityValue" for="eventSensitivityLevel"></output></span><input id="eventSensitivityLevel" aria-label="Sensitivity" aria-describedby="eventSensitivityValue" type="range" min="40" max="180" step="5"></label>',
           '<div class="event-settings-actions"><button class="event-action" id="eventViewerToggleStats" type="button" aria-pressed="true">Agent stats on</button><button class="event-action" id="eventViewerRecenter" type="button">Recenter view</button></div>',
         '</fieldset>',
         '<small>These choices stay on this device. Ocean, fire and fountain remain spatial in the room.</small>',
@@ -355,6 +365,7 @@
       input.addEventListener('input',function(){ setAudioMix(key,Number(input.value) / 100); });
     });
     syncAudioMixUI();
+    bindViewSettings();
     closeSettingsPanel(false);
     closeAllPanels();
     byId('eventStart').addEventListener('click', startShow);
@@ -543,6 +554,31 @@
     byId('eventViewerToggleStats').textContent = viewerStatsVisible ? 'Agent stats on' : 'Agent stats off';
   }
 
+  function bindViewSettings(){
+    var fov = byId('eventFovLevel');
+    var sensitivity = byId('eventSensitivityLevel');
+    function sync(settings){
+      viewSettings = settings || loadViewSettings();
+      fov.value = String(Math.round(viewSettings.fov));
+      sensitivity.value = String(Math.round(viewSettings.sensitivity));
+      byId('eventFovValue').textContent = Math.round(viewSettings.fov) + '°';
+      byId('eventSensitivityValue').textContent = Math.round(viewSettings.sensitivity) + '%';
+      fov.setAttribute('aria-valuetext',Math.round(viewSettings.fov) + ' degrees');
+      sensitivity.setAttribute('aria-valuetext',Math.round(viewSettings.sensitivity) + ' percent');
+    }
+    fov.addEventListener('input',function(){
+      var settings = window.GoneAwayViewSettings.set({fov:Number(fov.value)});
+      sync(settings);
+      camera.fov = vFov(CFG.hfovWalk);
+      camera.updateProjectionMatrix();
+    });
+    sensitivity.addEventListener('input',function(){
+      sync(window.GoneAwayViewSettings.set({sensitivity:Number(sensitivity.value)}));
+    });
+    addEventListener('gone-away-view-settings-change',function(e){ sync(e.detail); });
+    sync(viewSettings);
+  }
+
   function isEditable(target){
     return target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
   }
@@ -556,8 +592,9 @@
     });
     canvas.addEventListener('pointermove', function(e){
       if(!drag || e.pointerType !== 'mouse') return;
-      player.yaw -= (e.clientX - drag.x) * .0032;
-      player.pitch = Math.max(-1,Math.min(.78,player.pitch - (e.clientY - drag.y) * .0032));
+      var gain = .0032 * viewSettings.sensitivity / 100;
+      player.yaw -= (e.clientX - drag.x) * gain;
+      player.pitch = Math.max(-1,Math.min(.78,player.pitch - (e.clientY - drag.y) * gain));
       drag.x = e.clientX;
       drag.y = e.clientY;
     });
@@ -1140,6 +1177,16 @@
   }
 
   function playCaseReel(){
+    // From here the room is fully open again: the agents are present, the soundtrack
+    // returns from its welcome duck, and the case film takes over the lagoon.
+    if(typeof Sound !== 'undefined' && Sound.setMusicDuck){
+      Sound.setMusicDuck(1,1.4);
+      if((resumeRecordAfterWelcome || (typeof recordPlaying !== 'undefined' && recordPlaying)) && Sound.startMusic){
+        var recordResumed = Sound.startMusic();
+        if(typeof recordPlaying !== 'undefined') recordPlaying = !!recordResumed;
+      }
+    }
+    resumeRecordAfterWelcome = false;
     playHostReel({
       cue:'garmus.case',
       url:fixture.host.caseReel,
@@ -1191,6 +1238,14 @@
     clearTimeout(welcomeTimer);
     stopWelcomeCaptionSync();
     activeHostReel = null;
+    if(config.cue === 'garmus.case'){
+      welcomeMode = false;
+      document.body.classList.remove('event-garmus-welcome');
+      if(stage.video) stage.video.pause();
+      evidence.forEach(function(panel){ panel.mesh.visible = true; });
+      R.stageAuto = 'title';
+      if(typeof Sound !== 'undefined' && Sound.setMusicDuck) Sound.setMusicDuck(1,1.4);
+    }
     nextBeat();
   }
 
@@ -1267,6 +1322,7 @@
     activeHostReel = null;
     agentsArrived = true;
     document.body.classList.remove('event-garmus-welcome');
+    document.body.classList.remove('event-game-begins');
     setAgentsVisible(true);
     evidence.forEach(function(panel){ panel.mesh.visible = false; });
     if(stage.video) stage.video.pause();
@@ -1280,10 +1336,12 @@
     clearTimeout(welcomeTimer);
     welcomeMode = false;
     activeHostReel = null;
-    agentsArrived = true;
+    // The welcome lands on the title sting before the contestants enter. Keeping the
+    // porch empty for these few seconds makes the transition read as a real opening.
+    agentsArrived = false;
     document.body.classList.remove('event-garmus-welcome');
-    setAgentsVisible(true);
-    evidence.forEach(function(panel){ panel.mesh.visible = true; });
+    setAgentsVisible(false);
+    evidence.forEach(function(panel){ panel.mesh.visible = false; });
     if(stage.video) stage.video.pause();
     if(typeof Sound !== 'undefined' && Sound.setMusicDuck){
       Sound.setMusicDuck(1,1.4);
@@ -1292,7 +1350,6 @@
         if(typeof recordPlaying !== 'undefined') recordPlaying = !!recordResumed;
       }
     }
-    resumeRecordAfterWelcome = false;
     R.stageAuto = 'title';
     document.body.classList.add('event-game-begins');
     setTimeout(function(){ document.body.classList.remove('event-game-begins'); },2400);
@@ -1498,6 +1555,12 @@
         if(beat.cue === 'reveal') R.revealed = true;
         if(beat.cue === 'prize.award') R.prizeAwarded = true;
       }
+    }
+    // Scene jumps within the ceremony should match the new opening order too.
+    if(sceneIndex === 1){
+      agentsArrived = beatIndex >= 2;
+      setAgentsVisible(agentsArrived);
+      evidence.forEach(function(panel){ panel.mesh.visible = false; });
     }
     setFormation(R.formation);
     updatePlates();

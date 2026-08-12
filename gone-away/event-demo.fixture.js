@@ -84,9 +84,9 @@
         id:'SC01_GARMUS_WELCOME', label:'The Opening Ceremony', duration:62,
         beats:[
           {id:'SC01-B01', duration:27, cue:'garmus.welcome'},
-          {id:'SC01-B02', duration:4, cue:'agents.arrive'},
-          {id:'SC01-B03', duration:27, cue:'garmus.case'},
-          {id:'SC01-B04', duration:4, cue:'game.begin'}
+          {id:'SC01-B02', duration:4, cue:'game.begin'},
+          {id:'SC01-B03', duration:4, cue:'agents.arrive'},
+          {id:'SC01-B04', duration:27, cue:'garmus.case'}
         ]
       },
       {

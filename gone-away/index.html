@@ -184,7 +184,8 @@
     color:#fffaf0;box-shadow:0 9px 32px rgba(0,0,0,.24),inset 0 0 32px rgba(232,196,138,.05);
     transform:translateY(-1px)}
   .enter:active{transform:translateY(0)}
-  .enter:focus-visible,#prefsToggle:focus-visible,.music-choose:focus-within,.music-clear:focus-visible{
+  .enter:focus-visible,#prefsToggle:focus-visible,.music-choose:focus-within,.music-clear:focus-visible,
+  .opts input:focus-visible{
     outline:1px solid var(--gold-bright);outline-offset:5px}
   .acts{margin-top:54px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
 
@@ -227,6 +228,10 @@
   .opts{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:center;
     font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
     color:rgba(242,230,208,.55);pointer-events:auto}
+  .opts label.view-setting{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;min-width:190px;text-align:left}
+  .opts .view-setting>span{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .opts .view-setting output{color:var(--gold-bright);font-variant-numeric:tabular-nums}
+  .opts .view-setting input[type=range]{width:100%}
 
   /* Control hints: taught once on entry, then gone for good. */
   #tutor{position:fixed;left:50%;bottom:9%;transform:translateX(-50%);z-index:8;
@@ -315,7 +320,7 @@
   @keyframes loadTravel{0%{transform:translateX(-100%)}55%,100%{transform:translateX(100%)}}
 
   /* ---------------- authored teaser video ---------------- */
-  /* Preserve the finished 25.6-second teaser in its 16:9 composition
+  /* Preserve the authored teaser and trailer in their 16:9 compositions
      in every viewport; black belongs around the image when the display is wider/taller,
      never a crop through the island, cocktail, or end title. */
   #teaserFilm{position:fixed;inset:0;z-index:40;display:grid;place-items:center;
@@ -434,6 +439,7 @@
   <div class="acts">
     <button class="enter" id="enterBtn">Enter Lounge</button>
     <button class="enter ghost" id="teaserBtn">Watch Teaser</button>
+    <button class="enter ghost" id="trailerBtn">Watch Trailer</button>
   </div>
   <!-- Everything below is deliberately out of the way. A title screen that lists its
        own keybindings, its soundtrack length and four tuning sliders reads as a dev
@@ -444,8 +450,8 @@
     <div class="opts">
       <label><input type="checkbox" id="optBob"> Head bob</label>
       <label><input type="checkbox" id="optGrain" checked> Film grain</label>
-      <label>View <input type="range" id="optFov" min="70" max="105" value="85"></label>
-      <label>Look <input type="range" id="optSens" min="40" max="180" value="100"></label>
+      <label class="view-setting"><span>Field of view <output id="optFovValue" for="optFov">85°</output></span><input type="range" id="optFov" min="70" max="105" value="85" step="1" aria-label="Field of view" aria-describedby="optFovValue"></label>
+      <label class="view-setting"><span>Sensitivity <output id="optSensValue" for="optSens">100%</output></span><input type="range" id="optSens" min="40" max="180" value="100" step="5" aria-label="Sensitivity" aria-describedby="optSensValue"></label>
     </div>
     <fieldset class="music-settings">
       <legend>Lounge music</legend>
@@ -490,7 +496,7 @@
 </div>
 
 <div id="teaserFilm" role="dialog" aria-modal="true" aria-label="Gone Away teaser" aria-hidden="true">
-  <video id="teaserVideo" preload="auto" playsinline disablepictureinpicture aria-label="Gone Away teaser video">
+  <video id="teaserVideo" data-film="teaser" preload="auto" playsinline disablepictureinpicture aria-label="Gone Away teaser video">
     <source src="./media/gone-away-teaser-v4.mp4?v=20260810-final4" type="video/mp4">
   </video>
   <button id="teaserClose" type="button" aria-label="Return to the resort">Return</button>
@@ -563,6 +569,48 @@ const CFG = {
   // The Beach Noir Revue. Generated from tiki-lounge by scripts/build-library.mjs;
   // serve over http so the catalog and shared audio files can be fetched.
   libraryUrl: './audio/library.json'
+};
+
+// Camera comfort settings are shared by the regular lounge and the event spin-off.
+// Keep the values small and transparent: horizontal degrees for FOV, percentage for
+// input sensitivity. Invalid or old values simply fall back to the authored defaults.
+const VIEW_SETTINGS_KEY = 'gone-away-view-settings-v1';
+function clampViewSetting(value, min, max, fallback){
+  value = Number(value);
+  return Number.isFinite(value) ? THREE.MathUtils.clamp(value, min, max) : fallback;
+}
+function loadViewSettings(){
+  const defaults = {fov:85,sensitivity:100};
+  try {
+    const stored = JSON.parse(localStorage.getItem(VIEW_SETTINGS_KEY) || '{}');
+    defaults.fov = clampViewSetting(stored.fov,70,105,defaults.fov);
+    defaults.sensitivity = clampViewSetting(stored.sensitivity,40,180,defaults.sensitivity);
+  } catch(ignore){}
+  return defaults;
+}
+const VIEW_SETTINGS = loadViewSettings();
+function applyViewSettings(){
+  CFG.hfovWalk = VIEW_SETTINGS.fov;
+  CFG.hfovSeat = VIEW_SETTINGS.fov * .82;
+  CFG.lookGainMouse = (VIEW_SETTINGS.sensitivity / 100) * 1.35;
+  CFG.lookGainTouch = VIEW_SETTINGS.sensitivity / 100;
+}
+function saveViewSettings(){
+  try { localStorage.setItem(VIEW_SETTINGS_KEY, JSON.stringify(VIEW_SETTINGS)); }
+  catch(ignore){}
+}
+applyViewSettings();
+window.GoneAwayViewSettings = {
+  get:function(){ return {fov:VIEW_SETTINGS.fov,sensitivity:VIEW_SETTINGS.sensitivity}; },
+  set:function(next){
+    next = next || {};
+    if(next.fov !== undefined) VIEW_SETTINGS.fov = clampViewSetting(next.fov,70,105,VIEW_SETTINGS.fov);
+    if(next.sensitivity !== undefined) VIEW_SETTINGS.sensitivity = clampViewSetting(next.sensitivity,40,180,VIEW_SETTINGS.sensitivity);
+    applyViewSettings();
+    saveViewSettings();
+    window.dispatchEvent(new CustomEvent('gone-away-view-settings-change',{detail:this.get()}));
+    return this.get();
+  }
 };
 
 const CLOUDS = [];
@@ -796,7 +844,9 @@ let COMPOSER = null, BLOOM = null, GRADE = null, SMAA = null, BOKEH = null, SSAO
 function vFov(hfovDeg){
   const h = hfovDeg * Math.PI / 180;
   const v = 2 * Math.atan(Math.tan(h / 2) / camera.aspect) * 180 / Math.PI;
-  return THREE.MathUtils.clamp(v, 48, 68);
+  // Broad safety bounds keep portrait and ultrawide displays usable without flattening
+  // half of the user-facing slider into the same projection.
+  return THREE.MathUtils.clamp(v, 32, 92);
 }
 
 function resize(){
@@ -5006,7 +5056,12 @@ function tick(){
       1.70 + Math.sin(time * 0.07) * 0.045,
       4.4 + Math.cos(a * 0.8) * 0.48);
     camera.lookAt(2.6, 1.35, -4.2);
-    const mf = vFov(72);
+    // Preview the selected lens while Settings is open; otherwise preserve the authored
+    // 72° hero framing behind the untouched title plate.
+    const prefs = document.getElementById('prefs');
+    const mf = prefs && prefs.classList.contains('open')
+      ? vFov(CFG.hfovWalk)
+      : THREE.MathUtils.clamp(vFov(72),48,68);
     if(Math.abs(camera.fov - mf) > 0.05){ camera.fov = mf; camera.updateProjectionMatrix(); }
   } else {
     const eye = seated ? CFG.seatHeight : CFG.eyeHeight;
@@ -5268,7 +5323,8 @@ const LegacyTeaser = (function(){
   };
 })();
 
-// The front-door teaser is the finished video supplied for Gone Away. The former live
+// The front-door films are the finished teaser and extended trailer supplied for Gone
+// Away. The former live
 // camera reel remains above as framing reference, but it no longer owns the menu action:
 // the authored edit, mix, pacing, and final title must arrive together as one piece.
 const Teaser = (function(){
@@ -5277,6 +5333,11 @@ const Teaser = (function(){
   const close = document.getElementById('teaserClose');
   const load = document.getElementById('teaserLoad');
   let active = false, onDone = null, finishTimer = null, volumeFrame = 0;
+  const films = {
+    teaser:{src:'./media/gone-away-teaser-v4.mp4?v=20260810-final4',label:'teaser',duration:25.6},
+    trailer:{src:'./media/gone-away-teaser-private-extended-v9.mp4?v=20260812-v9',label:'extended trailer',duration:47.625}
+  };
+  let activeFilm = films.teaser;
 
   function clearFinishTimer(){
     if(finishTimer){ clearTimeout(finishTimer); finishTimer = null; }
@@ -5287,8 +5348,8 @@ const Teaser = (function(){
     const from = video.volume;
     const began = performance.now();
     function step(now){
-      const k = Math.min(1, (now - began) / Math.max(1, duration));
-      video.volume = from + (to - from) * k;
+      const k = THREE.MathUtils.clamp((now - began) / Math.max(1, duration), 0, 1);
+      video.volume = THREE.MathUtils.clamp(from + (to - from) * k, 0, 1);
       if(k < 1) volumeFrame = requestAnimationFrame(step);
       else volumeFrame = 0;
     }
@@ -5325,7 +5386,7 @@ const Teaser = (function(){
   video.addEventListener('error', function(){
     if(!active) return;
     shell.classList.add('waiting');
-    load.textContent = 'The teaser could not be loaded';
+    load.textContent = 'The ' + activeFilm.label + ' could not be loaded';
   });
   close.addEventListener('click', function(e){
     e.preventDefault(); e.stopPropagation();
@@ -5334,14 +5395,23 @@ const Teaser = (function(){
 
   return {
     running: function(){ return active; },
-    start: function(done){
+    start: function(film,done){
       if(active) return;
+      activeFilm = films[film] || films.teaser;
       onDone = done || null;
       active = true;
       state = 'teaser';
       setPlayHudVisible(false);
       clearFinishTimer();
-      load.textContent = 'Preparing the teaser';
+      load.textContent = 'Preparing the ' + activeFilm.label;
+      shell.setAttribute('aria-label','Gone Away ' + activeFilm.label);
+      video.setAttribute('aria-label','Gone Away ' + activeFilm.label + ' video');
+      const requestedFilm = films[film] ? film : 'teaser';
+      if(video.dataset.film !== requestedFilm){
+        video.dataset.film = requestedFilm;
+        video.src = activeFilm.src;
+        video.load();
+      }
       shell.classList.remove('leaving');
       shell.classList.add('waiting');
       shell.setAttribute('aria-hidden', 'false');
@@ -5366,7 +5436,7 @@ const Teaser = (function(){
     },
     skip: function(){ finish(0); },
     update: function(){},
-    totalSeconds: 25.6
+    totalSeconds: function(){ return activeFilm.duration; }
   };
 })();
 
@@ -5509,25 +5579,27 @@ bindEnter(document.getElementById('resumeBtn'));
 // the sequence is started from a button rather than auto-playing on load — an attract
 // reel with no soundtrack would undersell the whole thing.
 (function(){
-  const btn = document.getElementById('teaserBtn');
-  if(!btn) return;
-  btn.addEventListener('click', function(e){
-    e.preventDefault(); e.stopPropagation();
-    if(Teaser.running()) return;
-    startEl.style.display = 'none';
-    pauseEl.style.display = 'none';
-    const l = document.getElementById('loading'); if(l) l.classList.add('done');
-    Teaser.start(function(){
-      // Return to the complete title lockup. The teaser ends on GONE AWAY, and the
-      // room should cradle that identity rather than dropping the player into an
-      // anonymous pair of buttons.
-      startEl.classList.remove('post-film');
-      startEl.style.display = 'flex';
-      btn.textContent = 'Replay Teaser';
-      const enter = document.getElementById('enterBtn');
-      if(enter) enter.focus();
+  function bindFilm(buttonId,film,replayLabel){
+    const btn = document.getElementById(buttonId);
+    if(!btn) return;
+    btn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      if(Teaser.running()) return;
+      closePreferences();
+      startEl.style.display = 'none';
+      pauseEl.style.display = 'none';
+      const l = document.getElementById('loading'); if(l) l.classList.add('done');
+      Teaser.start(film,function(){
+        startEl.classList.remove('post-film');
+        startEl.style.display = 'flex';
+        btn.textContent = replayLabel;
+        const enter = document.getElementById('enterBtn');
+        if(enter) enter.focus();
+      });
     });
-  });
+  }
+  bindFilm('teaserBtn','teaser','Replay Teaser');
+  bindFilm('trailerBtn','trailer','Replay Trailer');
 })();
 
 // A deliberate escape path. Generic mouse/touch listeners made an incidental tap on
@@ -5712,6 +5784,22 @@ if(CFG.libraryUrl){
   const grain = document.getElementById('optGrain');
   const fov = document.getElementById('optFov');
   const sens = document.getElementById('optSens');
+  const fovValue = document.getElementById('optFovValue');
+  const sensValue = document.getElementById('optSensValue');
+  function syncViewControls(settings){
+    settings = settings || window.GoneAwayViewSettings.get();
+    if(fov){
+      fov.value = String(Math.round(settings.fov));
+      fov.setAttribute('aria-valuetext',Math.round(settings.fov) + ' degrees');
+    }
+    if(sens){
+      sens.value = String(Math.round(settings.sensitivity));
+      sens.setAttribute('aria-valuetext',Math.round(settings.sensitivity) + ' percent');
+    }
+    if(fovValue) fovValue.textContent = Math.round(settings.fov) + '°';
+    if(sensValue) sensValue.textContent = Math.round(settings.sensitivity) + '%';
+  }
+  syncViewControls();
   if(bob) bob.addEventListener('change', function(){
     CFG.bobAmp = bob.checked ? 0.028 : 0.0;
   });
@@ -5722,14 +5810,14 @@ if(CFG.libraryUrl){
     if(el) el.style.display = grain.checked ? 'block' : 'none';
   });
   if(fov) fov.addEventListener('input', function(){
-    CFG.hfovWalk = +fov.value;
-    CFG.hfovSeat = +fov.value * 0.82;
-    resize();
+    syncViewControls(window.GoneAwayViewSettings.set({fov:+fov.value}));
+    camera.fov = vFov(CFG.hfovWalk);
+    camera.updateProjectionMatrix();
   });
   if(sens) sens.addEventListener('input', function(){
-    CFG.lookGainMouse = (+sens.value / 100) * 1.35;
-    CFG.lookGainTouch = (+sens.value / 100);
+    syncViewControls(window.GoneAwayViewSettings.set({sensitivity:+sens.value}));
   });
+  addEventListener('gone-away-view-settings-change',function(e){ syncViewControls(e.detail); });
 })();
 
 let orientationDismissed = false;
