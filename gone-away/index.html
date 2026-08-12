@@ -382,6 +382,7 @@
     .screen,#loading,.enter,#prefs,#lineFolio,#folioPanel{transition-duration:.01ms!important}
   }
 </style>
+<link rel="stylesheet" href="./event-demo.css">
 </head>
 <body class="play-hud-off">
 <canvas id="c" tabindex="-1"></canvas>
@@ -1308,9 +1309,15 @@ loadCommissionedTexture('assets/materials/carved-teak.jpg', 2, 3, function(t){
 // ---------------------------------------------------------------- lights
 const MOON_POS = new THREE.Vector3(26, 96, -300);
 const MOON_DIR = MOON_POS.clone().normalize();
+const EVENT_DEMO_MODE = new URLSearchParams(location.search || '').get('mode') === 'demo' ||
+  ['demo','pilot'].includes(new URLSearchParams(location.search || '').get('event'));
 // Pull the hearth toward the lagoon. Besides giving the fire a stronger
 // relationship to the water, this turns the former pinch point between the hearth and
 // coffee table into a real circulation aisle.
+// During the event, six faces share this sightline. Lower only the event hearth so its
+// light remains central without the bowl masking the middle of the lineup.
+const FIRE_DISPLAY_Y = EVENT_DEMO_MODE ? -0.50 : 0;
+const FIRE_PARTICLE_Y = EVENT_DEMO_MODE ? 0.34 : 0.88;
 const FIRE_POS = new THREE.Vector3(0, 0.95, -3.4);
 
 // Sky fill carries the blue hour indoors. At 0.40 with a near-black sky the interior
@@ -2190,19 +2197,19 @@ contactShadow(-2.5, 7.5, 1.4, 1.4, 0.016, 0.60);    // LP stack
 
 // ---------------------------------------------------------------- firepit
 (function(){
-  cyl(1.28, 1.42, 0.5, 14, M.stone, FIRE_POS.x, 0.25, FIRE_POS.z);
-  cyl(1.02, 0.86, 0.55, 14, M.bronze, FIRE_POS.x, 0.75, FIRE_POS.z);
+  cyl(1.28, 1.42, 0.5, 14, M.stone, FIRE_POS.x, 0.25 + FIRE_DISPLAY_Y, FIRE_POS.z);
+  cyl(1.02, 0.86, 0.55, 14, M.bronze, FIRE_POS.x, 0.75 + FIRE_DISPLAY_Y, FIRE_POS.z);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.09, 8, 22), M.bronze);
-  rim.rotation.x = Math.PI / 2; rim.position.set(FIRE_POS.x, 1.02, FIRE_POS.z);
+  rim.rotation.x = Math.PI / 2; rim.position.set(FIRE_POS.x, 1.02 + FIRE_DISPLAY_Y, FIRE_POS.z);
   rim.castShadow = true; scene.add(rim);
   const embers = new THREE.Mesh(new THREE.CircleGeometry(0.9, 18), M.emberMat);
-  embers.rotation.x = -Math.PI / 2; embers.position.set(FIRE_POS.x, 0.86, FIRE_POS.z);
+  embers.rotation.x = -Math.PI / 2; embers.position.set(FIRE_POS.x, 0.86 + FIRE_DISPLAY_Y, FIRE_POS.z);
   scene.add(embers);
   // a few logs
   for(let i = 0; i < 4; i++){
     const a = i / 4 * Math.PI * 2 + 0.4;
     const l = cyl(0.09, 0.11, 1.1, 6, M.dark,
-      FIRE_POS.x + Math.cos(a) * 0.3, 0.95, FIRE_POS.z + Math.sin(a) * 0.3);
+      FIRE_POS.x + Math.cos(a) * 0.3, 0.95 + FIRE_DISPLAY_Y, FIRE_POS.z + Math.sin(a) * 0.3);
     l.rotation.z = Math.PI / 2 - 0.2; l.rotation.y = a;
   }
   // 1.5 still clears the 1.42m stone base once the player's own 0.34m radius is added,
@@ -2293,6 +2300,10 @@ sofa( 0.0,  2.4,  0);
 let recordPlaying = false;
 const platter = new THREE.Group();
 const tonearm = new THREE.Group();
+const recordGlow = new THREE.PointLight(0xe8b66d, 0, 3.2, 2);
+recordGlow.position.set(-4.4, 1.55, 7.25);
+scene.add(recordGlow);
+let recordInteractionPulse = 0;
 (function(){
   // console / sideboard
   box(2.9, 0.9, 0.8, M.panel, -4.4, 0.55, 7.6);
@@ -2371,6 +2382,12 @@ const tonearm = new THREE.Group();
 
   const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 12), M.brass);
   knob.position.set(-0.5, 0.18, 0.38); rp.add(knob);
+  const knobHit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 10, 8),
+    new THREE.MeshBasicMaterial({visible:false})
+  );
+  knobHit.position.copy(knob.position);
+  rp.add(knobHit);
 
   // The teaser's intimate close-up pairs lacquered vinyl with an orchid cocktail. This
   // small house drink gives the record ritual a human trace before any guest appears.
@@ -2390,6 +2407,7 @@ const tonearm = new THREE.Group();
   blocker(-4.4, 7.6, 1.6);
   interactive(rp, 'Drop the needle', function(){ toggleRecord(); });
   rp.userData.isRecord = true;
+  interactive(knobHit, 'Play the next side', function(){ nextRecord(); });
 })();
 
 // ---------------------------------------------------------------- archive photographs
@@ -3411,12 +3429,14 @@ const fire = makeSystem(LOW ? 90 : 150, 240);
 for(let i = 0; i < fire.n; i++) fire.data.push({life: Math.random() * 1.2, max: 1.2});
 function resetFire(i){
   const d = fire.data[i];
-  d.max = rnd(0.7, 1.7); d.life = 0;
+  d.max = EVENT_DEMO_MODE ? rnd(0.45, 1.05) : rnd(0.7, 1.7); d.life = 0;
   d.x = FIRE_POS.x + rnd(-0.42, 0.42);
-  d.y = 0.88 + rnd(0, 0.1);
+  d.y = FIRE_PARTICLE_Y + rnd(0, 0.1);
   d.z = FIRE_POS.z + rnd(-0.42, 0.42);
-  d.vx = rnd(-0.16, 0.16); d.vy = rnd(0.9, 2.0); d.vz = rnd(-0.16, 0.16);
-  d.size = rnd(0.5, 1.5);
+  d.vx = rnd(-0.16, 0.16);
+  d.vy = EVENT_DEMO_MODE ? rnd(0.55, 1.25) : rnd(0.9, 2.0);
+  d.vz = rnd(-0.16, 0.16);
+  d.size = EVENT_DEMO_MODE ? rnd(0.4, 1.1) : rnd(0.5, 1.5);
 }
 for(let i = 0; i < fire.n; i++){ resetFire(i); fire.data[i].life = Math.random() * fire.data[i].max; }
 
@@ -3470,9 +3490,11 @@ function makeRecordPlaybackOrder(tracks, random){
 const Sound = (function(){
   let AC = null, master = null, ambBus = null, fireBus = null, musicBus = null,
       musicFilter = null, waterBus = null, waterGain = null, fireGain = null,
-      surfGain = null, delayWet = null;
+      surfGain = null, delayWet = null, ambienceUserGain = null,
+      musicUserGain = null, foleyBus = null;
   let noiseBuf = null;
   let started = false, crackleOn = false;
+  let ambienceLevel = 1, musicLevel = 1, musicDuck = 1;
 
   // ---- the record: a streamed <audio> element routed into the music bus ----
   // The album is 4 hours long, so decoding whole tracks into AudioBuffers is out
@@ -3517,14 +3539,17 @@ const Sound = (function(){
     noiseBuf = makeNoiseBuffer();
 
     master = AC.createGain(); master.gain.value = 0.0; master.connect(AC.destination);
-    ambBus = AC.createGain(); ambBus.gain.value = 1.0; ambBus.connect(master);
-    fireBus = AC.createGain(); fireBus.gain.value = 1.0; fireBus.connect(master);
-    waterBus = AC.createGain(); waterBus.gain.value = 0.0; waterBus.connect(master);
+    ambienceUserGain = AC.createGain(); ambienceUserGain.gain.value = ambienceLevel; ambienceUserGain.connect(master);
+    musicUserGain = AC.createGain(); musicUserGain.gain.value = musicLevel * musicDuck; musicUserGain.connect(master);
+    foleyBus = AC.createGain(); foleyBus.gain.value = 1.0; foleyBus.connect(ambienceUserGain);
+    ambBus = AC.createGain(); ambBus.gain.value = 1.0; ambBus.connect(ambienceUserGain);
+    fireBus = AC.createGain(); fireBus.gain.value = 1.0; fireBus.connect(ambienceUserGain);
+    waterBus = AC.createGain(); waterBus.gain.value = 0.0; waterBus.connect(ambienceUserGain);
 
     musicFilter = AC.createBiquadFilter();
     musicFilter.type = 'lowpass'; musicFilter.frequency.value = 3000;
     musicBus = AC.createGain(); musicBus.gain.value = 0.0;
-    musicBus.connect(musicFilter).connect(master);
+    musicBus.connect(musicFilter).connect(musicUserGain);
 
     const delay = AC.createDelay(1.0); delay.delayTime.value = 0.34;
     const fb = AC.createGain(); fb.gain.value = 0.3;
@@ -3616,7 +3641,7 @@ const Sound = (function(){
     o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(dest || master);
+    o.connect(g).connect(dest || foleyBus || master);
     o.start(t); o.stop(t + dur + 0.02);
   }
 
@@ -3714,6 +3739,7 @@ const Sound = (function(){
     if(p && p.catch) p.catch(function(){
       if(sourceMode !== attemptedMode || !el.paused) return;
       setSurface(false);
+      if(document.body.classList.contains('event-demo')) return;
       window.dispatchEvent(new CustomEvent('musicplayrejected', {detail:{mode:attemptedMode}}));
     });
     setSurface(true);
@@ -3758,6 +3784,27 @@ const Sound = (function(){
     init: init,
     ready: function(){ return started; },
     resume: function(){ if(AC && AC.state === 'suspended') AC.resume(); },
+    setMix: function(levels){
+      levels = levels || {};
+      if(Number.isFinite(levels.music)) musicLevel = THREE.MathUtils.clamp(levels.music, 0, 1);
+      if(Number.isFinite(levels.ambience)) ambienceLevel = THREE.MathUtils.clamp(levels.ambience, 0, 1);
+      if(AC && musicUserGain){
+        musicUserGain.gain.cancelScheduledValues(AC.currentTime);
+        musicUserGain.gain.setTargetAtTime(Math.max(0.0001, musicLevel * musicDuck), AC.currentTime, 0.16);
+      }
+      if(AC && ambienceUserGain){
+        ambienceUserGain.gain.cancelScheduledValues(AC.currentTime);
+        ambienceUserGain.gain.setTargetAtTime(Math.max(0.0001, ambienceLevel), AC.currentTime, 0.16);
+      }
+    },
+    getMix: function(){ return {music:musicLevel, ambience:ambienceLevel, duck:musicDuck}; },
+    setMusicDuck: function(level, releaseSeconds){
+      musicDuck = THREE.MathUtils.clamp(Number(level) || 0, 0, 1);
+      if(AC && musicUserGain){
+        musicUserGain.gain.cancelScheduledValues(AC.currentTime);
+        musicUserGain.gain.setTargetAtTime(Math.max(0.0001, musicLevel * musicDuck), AC.currentTime, Math.max(0.03, releaseSeconds || 0.5));
+      }
+    },
 
     // ---- record library ----
     loadLibrary: function(url, cb){
@@ -3945,33 +3992,33 @@ const Sound = (function(){
     },
     needle: function(down){
       if(!AC) return;
-      burstNoise(master, AC.currentTime, down ? 0.09 : 0.05, 2600, 3, down ? 0.09 : 0.05);
+      burstNoise(foleyBus || master, AC.currentTime, down ? 0.09 : 0.05, 2600, 3, down ? 0.09 : 0.05);
       ping(down ? 180 : 260, down ? 90 : 150, 0.12, 'sine', 0.03);
     },
     valve: function(open){
       if(!AC) return;
       const t = AC.currentTime;
       for(let i = 0; i < 7; i++){
-        burstNoise(master, t + i * 0.075, 0.07, 900 + i * 90, 6, 0.05, 'bandpass');
+        burstNoise(foleyBus || master, t + i * 0.075, 0.07, 900 + i * 90, 6, 0.05, 'bandpass');
       }
       ping(open ? 90 : 150, open ? 150 : 80, 0.5, 'triangle', 0.05);
-      if(open) burstNoise(master, t + 0.55, 1.4, 700, 0.7, 0.10);
+      if(open) burstNoise(foleyBus || master, t + 0.55, 1.4, 700, 0.7, 0.10);
     },
     doorRattle: function(){
       if(!AC) return;
       const t = AC.currentTime;
-      burstNoise(master, t, 0.07, 320, 5, 0.09, 'bandpass');
-      burstNoise(master, t + 0.11, 0.06, 260, 5, 0.07, 'bandpass');
+      burstNoise(foleyBus || master, t, 0.07, 320, 5, 0.09, 'bandpass');
+      burstNoise(foleyBus || master, t + 0.11, 0.06, 260, 5, 0.07, 'bandpass');
     },
     step: function(){
       if(!AC) return;
       const t = AC.currentTime;
-      burstNoise(master, t, 0.09, rnd(150, 260), 1.6, 0.045, 'lowpass');
+      burstNoise(foleyBus || master, t, 0.09, rnd(150, 260), 1.6, 0.045, 'lowpass');
       ping(rnd(110, 150), 60, 0.07, 'sine', 0.012);
     },
     sit: function(){
       if(!AC) return;
-      burstNoise(master, AC.currentTime, 0.34, 420, 0.8, 0.05, 'lowpass');
+      burstNoise(foleyBus || master, AC.currentTime, 0.34, 420, 0.8, 0.05, 'lowpass');
     },
     update: function(camPos, seated, valveIsOpen){
       if(!AC || !started) return;
@@ -4018,6 +4065,7 @@ function loadRecordLibrary(done){
 }
 
 function toggleRecord(){
+  recordInteractionPulse = 1;
   if(recordPlaying){
     recordPlaying = false;
     Sound.needle(false);
@@ -4100,6 +4148,7 @@ function announceMusic(){
 
 // Flipping through the shelf: take the next side off the pile.
 function nextRecord(){
+  recordInteractionPulse = 1;
   if(!Sound.hasLibrary()){
     note('Opening the house collection.', '65 sides · Beach Noir Revue');
     loadRecordLibrary(function(ok){
@@ -4544,7 +4593,9 @@ function closeArchive(){
   state = 'play';
   setPlayHudVisible(true);
   checkOrientation();
-  if(!isTouch && canvas.requestPointerLock){
+  // The event lounge uses click-and-drag mouse look; only the original
+  // first-person experience should recapture the cursor after inspection.
+  if(!isTouch && !document.body.classList.contains('event-demo') && canvas.requestPointerLock){
     try {
       const lock = canvas.requestPointerLock();
       if(lock && lock.catch) lock.catch(function(){});
@@ -4905,6 +4956,9 @@ function animateWorld(dt, time){
   } else {
     tonearm.rotation.y += (-0.55 - tonearm.rotation.y) * Math.min(1, 1.4 * dt);
   }
+  recordInteractionPulse += (0 - recordInteractionPulse) * Math.min(1,dt * 2.8);
+  recordGlow.intensity = (recordPlaying ? 0.28 + Math.sin(time * 2.1) * 0.035 : 0.035) + recordInteractionPulse * 0.34;
+  platter.scale.setScalar(1 + recordInteractionPulse * 0.018);
 
   const wheelTarget = LineThree.wheelTarget();
   valveSpin.rotation.z += (wheelTarget - valveSpin.rotation.z) * Math.min(1, 2.4 * dt);
@@ -5500,7 +5554,8 @@ function openPauseMenu(){
 }
 
 document.addEventListener('pointerlockchange', function(){
-  if(state === 'play' && !document.pointerLockElement && !isTouch) openPauseMenu();
+  if(state === 'play' && !document.pointerLockElement && !isTouch &&
+    !document.body.classList.contains('event-demo')) openPauseMenu();
 });
 const touchMenu = document.getElementById('touchMenu');
 if(touchMenu){
@@ -5946,5 +6001,7 @@ const CAPTURE = (function(){
 })();
 
 </script>
+<script src="./event-demo.fixture.js"></script>
+<script src="./event-demo.js"></script>
 </body>
 </html>
