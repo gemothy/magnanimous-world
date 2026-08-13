@@ -111,7 +111,7 @@
 
   document.body.classList.add('event-demo');
   document.body.classList.toggle('event-operator-enabled', operatorEnabled);
-  document.title = fixture.title + ' — Gone Away Event Pilot';
+  document.title = fixture.title + (fixture.seriesTitle ? ' — ' + fixture.seriesTitle : ' — Gone Away Event Pilot');
   buildUI();
   buildWorld();
   bindUI();
@@ -164,6 +164,26 @@
     return 'gone-away-demo-vote:' + roomCode + ':' + fixture.id;
   }
 
+  function caseQuestion(){
+    return fixture.case && fixture.case.question ? fixture.case.question : 'Who is the murderer?';
+  }
+
+  function openingBoard(index){
+    var defaults = [
+      {
+        title:fixture.title,
+        kicker:'Tonight at the Magnanimis',
+        body:'Six agents. One hotel murder. One alibi that cannot be true.'
+      },
+      {
+        title:'Peer Trust',
+        kicker:'Public social signal',
+        body:'Confidence moves as agents challenge one another. It is never proof of guilt.'
+      }
+    ];
+    return fixture.openingBoards && fixture.openingBoards[index] || defaults[index];
+  }
+
   function clampLevel(value,fallback){
     value = Number(value);
     return Number.isFinite(value) ? Math.max(0,Math.min(1,value)) : fallback;
@@ -192,7 +212,7 @@
     root.id = 'eventDemoRoot';
     root.innerHTML = [
       '<header class="event-topbar">',
-        '<div class="event-brand"><strong>' + fixture.title + '</strong><span>' + fixture.subtitle + '</span></div>',
+        '<div class="event-brand"><strong>' + fixture.title + '</strong><span>' + (fixture.seriesTitle || fixture.subtitle) + '</span></div>',
         '<div class="event-room-status">',
           '<span class="event-room-pill">Room <b id="eventRoomCode"></b></span>',
           '<span class="event-live-pill" id="eventLivePill"><span id="eventPhase">Lounge open</span></span>',
@@ -252,7 +272,7 @@
       '</aside>',
       '<section class="event-poll" id="eventPoll" role="dialog" aria-labelledby="eventPollTitle">',
         '<div class="event-eyebrow" style="text-align:center">Audience checkpoint</div>',
-        '<h2 id="eventPollTitle">Who murdered Julian Vale?</h2>',
+        '<h2 id="eventPollTitle">' + caseQuestion() + '</h2>',
         '<p id="eventPollCopy">Commit your prediction. Peer Trust is social confidence, not guilt.</p>',
         '<div class="event-choices" id="eventChoices"></div>',
         '<div class="event-poll-foot"><span id="eventPollStatus">Prediction open</span><button class="event-tool" id="eventPollClose" type="button">Return to lounge</button></div>',
@@ -877,15 +897,7 @@
       world.add(mesh);
       var panel = {context:c.getContext('2d'),texture:texture,mesh:mesh};
       evidence.push(panel);
-      drawEvidence(panel,index === 0 ? {
-        title:'Quiet Witness',
-        kicker:'Tonight at the Magnanimis',
-        body:'Six agents. One hotel murder. One alibi that cannot be true.'
-      } : {
-        title:'Peer Trust',
-        kicker:'Public social signal',
-        body:'Confidence moves as agents challenge one another. It is never proof of guilt.'
-      });
+      drawEvidence(panel,openingBoard(index));
     });
   }
 
@@ -1205,7 +1217,10 @@
     if(config.hideAgents) setAgentsVisible(false);
     else setAgentsVisible(true);
     evidence.forEach(function(panel){ panel.mesh.visible = false; });
-    R.stageAuto = 'video';
+    // The first reel should own the lagoon immediately. Between reels, keep the
+    // authored ceremony card visible until the case film is actually playing;
+    // switching through `host` would briefly expose Garmus's still.
+    R.stageAuto = config.cue === 'garmus.welcome' ? 'video' : 'title';
     R.stageOverride = null;
     closeAllPanels();
     clearTimeout(welcomeTimer);
@@ -1216,6 +1231,8 @@
       manual:false,
       voiceTrimDb:config.voiceTrimDb,
       onPlay:function(video){
+        R.stageAuto = 'video';
+        drawStage(true);
         clearTimeout(welcomeTimer);
         welcomeTimer = setTimeout(function(){ finishHostReel(config,video); },Math.ceil(config.duration * 1000) + 800);
         startWelcomeCaptionSync(video,config.captions,config.transcriptPrefix);
@@ -1326,7 +1343,9 @@
     setAgentsVisible(true);
     evidence.forEach(function(panel){ panel.mesh.visible = false; });
     if(stage.video) stage.video.pause();
-    R.stageAuto = 'host';
+    // The agents-arrive beat bridges the game sting to the case reel. Leave the
+    // ceremony card up rather than flashing the host still for these four seconds.
+    R.stageAuto = 'title';
     drawStage(true);
   }
 
@@ -1437,16 +1456,8 @@
       R.transcript = {};
       byId('eventTranscriptList').replaceChildren();
     }
-    drawEvidence(evidence[0],{
-      title:'Quiet Witness',
-      kicker:'Tonight at the Magnanimis',
-      body:'Six agents. One hotel murder. One alibi that cannot be true.'
-    });
-    drawEvidence(evidence[1],{
-      title:'Peer Trust',
-      kicker:'Public social signal',
-      body:'Confidence moves as agents challenge one another. It is never proof of guilt.'
-    });
+    drawEvidence(evidence[0],openingBoard(0));
+    drawEvidence(evidence[1],openingBoard(1));
     updateHeader();
     updateBroadcast();
     updateRoundQuestion();
@@ -1461,7 +1472,7 @@
     R.scheduledAt = Date.now();
       R.stageAuto = 'title';
       enterBeat(1,0);
-      toast('Quiet Witness is live');
+      toast(fixture.title + ' is live');
     } else resumeShow();
   }
 
@@ -1612,7 +1623,7 @@
     }
     if(beat.cue === 'reveal'){
       R.revealed = true;
-      markAccused('eugene');
+      markAccused(fixture.culprit);
       R.stageAuto = 'host';
       gameCue('reveal');
     }
@@ -1779,7 +1790,7 @@
       plate.querySelector('i b').style.width = trust + '%';
       plate.classList.toggle('speaking',R.speaker === agent.id);
       plate.classList.toggle('targeted',R.target === agent.id);
-      plate.classList.toggle('accused',R.revealed && agent.id === 'eugene');
+      plate.classList.toggle('accused',R.revealed && agent.id === fixture.culprit);
     });
   }
 
@@ -1788,7 +1799,7 @@
       var actor = actors[id];
       actor.active = id === speaker;
       actor.addressed = id === target;
-      actor.accused = R.revealed && id === 'eugene';
+      actor.accused = R.revealed && id === fixture.culprit;
       actor.ring.material.color.set(actor.accused ? 0xe76464 : (id === target ? 0xe8c48a : 0x7ee9ee));
       actor.ring.material.opacity = actor.active ? .76 : (id === target ? .46 : .18);
     });
@@ -2027,15 +2038,12 @@
   function setFormation(name){
     R.formation = name;
     if(name === 'accuse'){
-      var layout = {
-        mr_c:[-4.8,-9.5],
-        nodnarb:[-3,-8.9],
-        mikeyyy:[-1.4,-8.5],
-        eugene:[0,-10.7],
-        ranger:[2.1,-8.6],
-        elza:[4.2,-9.2]
-      };
-      Object.keys(layout).forEach(function(id){ actors[id].target.set(layout[id][0],0,layout[id][1]); });
+      var sideSlots = [[-4.8,-9.5],[-3,-8.9],[-1.4,-8.5],[2.1,-8.6],[4.2,-9.2]];
+      var sideIndex = 0;
+      fixture.agents.forEach(function(agent){
+        var position = agent.id === fixture.culprit ? [0,-10.7] : sideSlots[sideIndex++];
+        if(actors[agent.id] && position) actors[agent.id].target.set(position[0],0,position[1]);
+      });
     } else {
       fixture.agents.forEach(function(agent,index){
         actors[agent.id].target.set(porch[index][0],0,porch[index][1]);
@@ -2131,11 +2139,12 @@
 
   function openPoll(reveal){
     R.pollLocked = !!reveal;
-    byId('eventPollTitle').textContent = reveal ? 'The room predicted. The truth is EugenE.' : 'Who murdered Julian Vale?';
+    var culprit = displayName(fixture.culprit);
+    byId('eventPollTitle').textContent = reveal ? 'The room predicted. The truth is ' + culprit + '.' : caseQuestion();
     byId('eventPollCopy').textContent = reveal ?
       'Prediction never changed the authored truth. It changed what the audience watched for.' :
       'Commit your prediction. Peer Trust is social confidence, not guilt.';
-    byId('eventPollStatus').textContent = reveal ? 'Reveal · EugenE' : 'Prediction open';
+    byId('eventPollStatus').textContent = reveal ? 'Reveal · ' + culprit : 'Prediction open';
     renderPoll();
     byId('eventPoll').classList.add('open');
   }
@@ -2181,7 +2190,7 @@
       button.style.setProperty('--vote',percent + '%');
       button.textContent = displayName(id) + ' · ' + percent + '%';
       button.classList.toggle('selected',localVote === id);
-      button.classList.toggle('culprit',R.revealed && id === 'eugene');
+      button.classList.toggle('culprit',R.revealed && id === fixture.culprit);
       button.disabled = R.pollLocked;
     });
     updateBroadcast();

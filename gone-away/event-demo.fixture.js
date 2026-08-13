@@ -2,12 +2,17 @@
   'use strict';
 
   window.GONE_AWAY_EVENT_FIXTURE = {
-    id: 'gone-away-pilot-quiet-witness-v2',
-    title: 'Quiet Witness',
-    subtitle: 'A murder mystery at the Magnanimis',
-    targetRuntimeSeconds: 666,
-    culprit: 'eugene',
+    id: 'gone-away-pilot-seventh-guest-v1',
+    title: 'The Seventh Guest',
+    seriesTitle: 'The Magnanimis Mysteries',
+    subtitle: 'A murder game at the Magnanimis',
+    targetRuntimeSeconds: 540,
+    culprit: 'ranger',
     winner: 'elza',
+    case: {
+      victim:'Adrian Vale',
+      question:'Who murdered Adrian Vale?'
+    },
     prize: {
       name:'Crystal Prize',
       copy:'Delivered to the winning agent wallet when they return to Midnight City.',
@@ -28,50 +33,62 @@
       caseVoiceTrimDb:13
     },
     agents: [
-      {id:'mr_c', name:'Mr. C', role:'Host’s guest', trust:72, score:0, face:'feminine', look:{base:1,pants:2,tshirt:5,hair:16,hues:{pants:0,tshirt:0,hair:0}}},
-      {id:'nodnarb', name:'Nodnarb', role:'Keyholder', trust:48, score:0, face:'masculine', look:{base:1,pants:1,tshirt:3,hair:2,hues:{pants:226,tshirt:331,hair:68}}},
-      {id:'mikeyyy', name:'Mikeyyy', role:'Eyewitness', trust:65, score:0, face:'feminine', look:{base:3,pants:5,tshirt:7,beard:1,hat:7,hues:{pants:255,tshirt:125,beard:318,hat:334}}},
-      {id:'eugene', name:'EugenE', role:'Collector', trust:80, score:0, face:'masculine', look:{base:1,pants:3,tshirt:7,coat:5,beard:1,hat:1,hues:{pants:72,tshirt:65,coat:29,beard:72,hat:72}}},
+      {id:'mr_c', name:'Mr. C', role:'Investor', trust:72, score:0, face:'feminine', look:{base:1,pants:2,tshirt:5,hair:16,hues:{pants:0,tshirt:0,hair:0}}},
+      {id:'nodnarb', name:'Nodnarb', role:'Confessor', trust:48, score:0, face:'masculine', look:{base:1,pants:1,tshirt:3,hair:2,hues:{pants:226,tshirt:331,hair:68}}},
+      {id:'mikeyyy', name:'Mikeyyy', role:'Degen', trust:65, score:0, face:'feminine', look:{base:3,pants:5,tshirt:7,beard:1,hat:7,hues:{pants:255,tshirt:125,beard:318,hat:334}}},
+      {id:'eugene', name:'EugenE', role:'Whale', trust:80, score:0, face:'masculine', look:{base:1,pants:3,tshirt:7,coat:5,beard:1,hat:1,hues:{pants:72,tshirt:65,coat:29,beard:72,hat:72}}},
       {id:'ranger', name:'Ranger', role:'Engineer', trust:54, score:0, face:'masculine', look:{base:1,pants:3,tshirt:6,hair:10,hues:{pants:78,tshirt:309,hair:111}}},
-      {id:'elza', name:'Elza', role:'Listener', trust:62, score:0, face:'feminine', look:{base:5,pants:5,tshirt:5,coat:3,hair:19,hues:{pants:0,tshirt:0,coat:288,hair:0}}}
+      {id:'elza', name:'Elza', role:'Auditor', trust:62, score:0, face:'feminine', look:{base:5,pants:5,tshirt:5,coat:3,hair:19,hues:{pants:0,tshirt:0,coat:288,hair:0}}}
+    ],
+    openingBoards: [
+      {
+        title:'The Seventh Guest',
+        kicker:'Tonight at the Magnanimis',
+        body:'Adrian Vale entered paradise. He did not leave the lagoon. All six agents had a reason.'
+      },
+      {
+        title:'Race the Table',
+        kicker:'How to play',
+        body:'Meet the suspects. Catch two case fragments. Vote before the agents. Win the gloat.'
+      }
     ],
     clues: {
       case_summary: {
-        title:'Murder by the Pool',
-        kicker:'10:15 PM · The Magnanimis',
-        body:'Hotel guest Julian Vale is found dead beside the pool. All six agents were nearby.'
+        title:'The Seventh Guest',
+        kicker:'Tonight at the Magnanimis',
+        body:'Adrian Vale, a luxury travel critic with twelve readers, was found beside the lagoon. All six agents had a reason.'
       },
-      timeline: {
-        title:'The Last 25 Minutes',
-        kicker:'Hotel desk times',
-        body:'9:50 · EugenE says he left Julian\n10:00 · Quiet Witness starts playing\n10:05 · Julian collects the red pool key\n10:15 · Julian is found'
+      rules: {
+        title:'Race the Table',
+        kicker:'The audience plays first',
+        body:'Hear six grievances. Catch two fragments. Lock your prediction before the agents receive the last clue.'
       },
-      record_docket: {
-        title:'The Repeating Record',
-        kicker:'10:00 PM · The lounge',
-        body:'Quiet Witness played on a loop. Elza heard the same eight bars twice—with nobody at the player.'
+      fragment_one: {
+        title:'The Last Reply',
+        kicker:'Case fragment 1 of 3',
+        body:'Adrian heard four calm words beside the lagoon. Nobody shouted. Nobody made a scene.'
       },
-      key_log: {
-        title:'The Red Pool Key',
-        kicker:'10:05 PM · Front desk',
-        body:'Julian received the red pool key at 10:05. EugenE claimed he saw that key at 9:50.'
+      fragment_two: {
+        title:'Something Out of Place',
+        kicker:'Case fragment 2 of 3',
+        body:'Immediately before the splash, Adrian disturbed something arranged with obsessive precision.'
       },
-      mirror_reframe: {
-        title:'The Mirror',
-        kicker:'Witness corrected',
-        body:'Mikeyyy saw a white jacket draped over a chair—not EugenE\'s face.'
+      fragment_three: {
+        title:'One Final Word',
+        kicker:'Case fragment 3 of 3',
+        body:'One word carried across the lagoon before the splash: TOWEL.'
       },
-      sleeve_reveal: {
-        title:'The False Alibi',
-        kicker:'The trick revealed',
-        body:'A jacket fooled the mirror. A looping record fooled the room. The red key exposed the time.'
+      verdict: {
+        title:'One Suspect Fits',
+        kicker:'The table decides',
+        body:'Four calm words. Something moved out of place. A towel. One grievance connects all three.'
       }
     },
-    baselinePoll: {mr_c:8,nodnarb:15,mikeyyy:9,eugene:21,ranger:42,elza:5},
+    baselinePoll: {mr_c:8,nodnarb:10,mikeyyy:12,eugene:9,ranger:42,elza:19},
     chatSeed: [
-      {name:'Lagoon regular', text:'The record feels like an alibi somebody built on purpose.'},
-      {name:'Night guest', text:'The red key did not exist at 9:50. Watch the times.'},
-      {name:'Porch table 4', text:'Elza is quietly climbing the detective board.'}
+      {name:'Swim-up regular', text:'Six separate grievances. Adrian almost deserved a loyalty card.'},
+      {name:'Cabana 3', text:'Elza counting twelve readers is colder than the lagoon.'},
+      {name:'Night guest', text:'I came for the chairs and now I am emotionally invested.'}
     ],
     scenes: [
       {
@@ -90,107 +107,112 @@
         ]
       },
       {
-        id:'SC02_CASE_OPEN', label:'The Case Opens', duration:20,
-        prompt:{label:'The case', text:'Who murdered Julian Vale?'},
+        id:'SC02_CASE_OPEN', label:'The Seventh Guest', duration:18,
+        prompt:{label:'Tonight at the Magnanimis', text:'Who murdered Adrian Vale?'},
         beats:[
-          {id:'SC02-B01', duration:10, cue:'clue.show', clue:'case_summary'},
-          {id:'SC02-B02', duration:10, cue:'clue.show', clue:'timeline'}
+          {id:'SC02-B01', duration:9, cue:'clue.show', clue:'case_summary'},
+          {id:'SC02-B02', duration:9, cue:'clue.show', clue:'rules'}
         ]
       },
       {
-        id:'SC03_FIRST_STATEMENTS', label:'First Statements', duration:105,
-        prompt:{label:'Question for all six', text:'Where were you between 9:50 and 10:15?'},
+        id:'SC03_FIRST_STATEMENTS', label:'Petty Grievances', duration:91,
+        prompt:{label:'Question for all six', text:'What did Adrian Vale do to you?'},
         beats:[
-          {id:'SC03-B01', duration:15, speaker:'mr_c', cue:'agent.forward', text:'I invited Julian. At ten I was waiting at the lagoon bar. Embarrassing, perhaps. Murderous, no.'},
-          {id:'SC03-B02', duration:15, speaker:'nodnarb', cue:'agent.forward', text:'I borrowed the hotel master key to reach the office phone. I never opened the pool gate.'},
-          {id:'SC03-B03', duration:15, speaker:'mikeyyy', cue:'agent.forward', text:'At five past ten I saw EugenE’s white jacket in the bar mirror. I thought he never left.'},
-          {id:'SC03-B04', duration:15, speaker:'eugene', cue:'agent.forward', text:'I left Julian at nine fifty. His red pool key was in his pocket. At ten I put on Quiet Witness.'},
-          {id:'SC03-B05', duration:15, speaker:'ranger', cue:'agent.forward', text:'The lights failed at ten oh seven. I was at the generator with grease on both hands.'},
-          {id:'SC03-B06', duration:15, speaker:'elza', cue:'agent.forward', text:'I heard the same eight bars twice. The lounge sounded occupied. The record player did not.'},
-          {id:'SC03-B07', duration:15, cue:'trust.change', score:{mr_c:2,nodnarb:1,mikeyyy:3,eugene:4,ranger:1,elza:6}, trust:{mr_c:2,nodnarb:-8,mikeyyy:5,eugene:4,ranger:-6,elza:6}, system:'Elza spots the first useful detail and takes the lead.'}
+          {id:'SC03-B01', duration:7, speaker:'garmus', text:'Honesty is complimentary tonight. Restraint, apparently, is not.'},
+          {id:'SC03-B02', duration:12, speaker:'mr_c', cue:'agent.forward', text:'I funded his travel club. Down ninety-seven percent. I am diversified in anger.'},
+          {id:'SC03-B03', duration:12, speaker:'nodnarb', cue:'agent.forward', text:'He filmed me crying at the swim-up bar. Forty views. Not viral. Just permanent.'},
+          {id:'SC03-B04', duration:12, speaker:'mikeyyy', cue:'agent.forward', text:'He stole my catchphrase. I was furious. Still am. Seventy percent furious.'},
+          {id:'SC03-B05', duration:12, speaker:'eugene', cue:'agent.forward', text:'He called EugenE “bro.” One is not bro. The ocean knows this.'},
+          {id:'SC03-B06', duration:12, speaker:'ranger', cue:'agent.forward', text:'He moved my towel.'},
+          {id:'SC03-B07', duration:12, speaker:'elza', cue:'agent.forward', text:'He claimed a million readers. I counted twelve. Then he blocked me.'},
+          {id:'SC03-B08', duration:12, cue:'trust.change', score:{mr_c:2,nodnarb:1,mikeyyy:1,eugene:1,ranger:1,elza:3}, trust:{mr_c:1,nodnarb:2,mikeyyy:1,eugene:2,ranger:-3,elza:4}, system:'Opening round · Elza lands the cleanest grievance and takes an early lead.'}
         ]
       },
       {
-        id:'SC04_FIRST_CROSSFIRE', label:'Crossfire', duration:70,
-        prompt:{label:'Crossfire', text:'Whose account breaks under pressure?'},
+        id:'SC04_FIRST_CROSSFIRE', label:'Two Fragments', duration:60,
+        prompt:{label:'The hotel remembers', text:'Which personality fits both fragments?'},
         beats:[
-          {id:'SC04-B01', duration:10, speaker:'elza', target:'eugene', text:'The same eight bars played twice.'},
-          {id:'SC04-B02', duration:10, speaker:'eugene', target:'elza', text:'Then the record was damaged.'},
-          {id:'SC04-B03', duration:10, speaker:'ranger', target:'eugene', text:'A repeating record can perform unattended.'},
-          {id:'SC04-B04', duration:10, speaker:'eugene', target:'ranger', text:'And a blackout gives an engineer ten useful minutes.'},
-          {id:'SC04-B05', duration:10, speaker:'mikeyyy', target:'eugene', text:'I saw you in the mirror.'},
-          {id:'SC04-B06', duration:10, speaker:'nodnarb', target:'mikeyyy', text:'You saw a white jacket and supplied the person.'},
-          {id:'SC04-B07', duration:10, cue:'trust.change', score:{nodnarb:2,mikeyyy:0,eugene:3,ranger:3,elza:4}, trust:{nodnarb:-4,mikeyyy:2,eugene:3,ranger:-8,elza:6}, system:'The board tightens. Elza still leads.'}
+          {id:'SC04-B01', duration:10, speaker:'garmus', cue:'clue.show', clue:'fragment_one', text:'First: Adrian heard four calm words. No shouting. No scene.'},
+          {id:'SC04-B02', duration:8, speaker:'nodnarb', text:'Four words? I cannot even panic in four words.'},
+          {id:'SC04-B03', duration:8, speaker:'mikeyyy', text:'Ranger is concise. Elza is concise. Fifty-fifty. Sixty-forty.'},
+          {id:'SC04-B04', duration:7, speaker:'ranger', text:'Several people speak briefly.'},
+          {id:'SC04-B05', duration:10, speaker:'garmus', cue:'clue.show', clue:'fragment_two', text:'Second: Adrian moved something arranged with obsessive precision.'},
+          {id:'SC04-B06', duration:8, speaker:'elza', text:'That implicates half this terrace.'},
+          {id:'SC04-B07', duration:9, speaker:'eugene', text:'Order is a crowded shoreline.'}
         ]
       },
       {
-        id:'SC05_AUDIENCE_PREDICTION', label:'Audience Prediction', duration:45,
-        prompt:{label:'Audience question', text:'Who murdered Julian Vale?'},
+        id:'SC05_AUDIENCE_PREDICTION', label:'Audience Prediction', duration:42,
+        prompt:{label:'Audience question', text:'Who murdered Adrian Vale?'},
         beats:[
-          {id:'SC05-B01', duration:12, speaker:'garmus', text:'You have heard six tidy accounts. Choose who you believe murdered Julian. The Magnanimis is very forgiving of incorrect confidence.'},
-          {id:'SC05-B02', duration:25, cue:'poll.open', system:'Audience prediction is open for twenty-five seconds.'},
-          {id:'SC05-B03', duration:8, cue:'poll.lock', system:'Predictions locked. The room suspects Ranger.'}
+          {id:'SC05-B01', duration:9, speaker:'garmus', text:'Lounge, vote now. The table receives one more fragment. You do not.'},
+          {id:'SC05-B02', duration:25, cue:'poll.open', system:'Audience prediction open · Beat the agents with less information.'},
+          {id:'SC05-B03', duration:8, cue:'poll.lock', system:'Predictions locked · The room leans toward Ranger.'}
         ]
       },
       {
-        id:'SC06_EVIDENCE_TURN', label:'The Evidence Turns', duration:65,
-        prompt:{label:'Evidence question', text:'What do the record and red key prove?'},
+        id:'SC06_EVIDENCE_TURN', label:'Defend the Grievance', duration:60,
+        prompt:{label:'One sentence each', text:'Why is your motive ridiculous—not murderous?'},
         beats:[
-          {id:'SC06-B01', duration:9, cue:'clue.show', clue:'record_docket'},
-          {id:'SC06-B02', duration:9, cue:'clue.show', clue:'key_log'},
-          {id:'SC06-B03', duration:15, speaker:'garmus', text:'Two clean facts. The record repeated by itself. The red pool key was handed to Julian at five past ten.'},
-          {id:'SC06-B04', duration:10, speaker:'ranger', text:'Then the music proves nobody was standing at the player.'},
-          {id:'SC06-B05', duration:10, speaker:'elza', text:'And EugenE described a key that Julian did not have yet.'},
-          {id:'SC06-B06', duration:12, cue:'trust.change', score:{nodnarb:2,mikeyyy:1,eugene:2,ranger:5,elza:10}, trust:{nodnarb:8,mikeyyy:-3,eugene:-15,ranger:20,elza:5}, system:'Elza connects both clues and opens a clear lead.'}
+          {id:'SC06-B01', duration:8, speaker:'garmus', text:'The lounge has committed. Convince the table that pettiness has limits.'},
+          {id:'SC06-B02', duration:8, speaker:'mr_c', text:'I lose money professionally. Adrian was merely unusually efficient.'},
+          {id:'SC06-B03', duration:8, speaker:'nodnarb', text:'I confess constantly. Surely a murderer would pace themselves.'},
+          {id:'SC06-B04', duration:8, speaker:'mikeyyy', text:'I forgive everything eventually. Sixty percent of everything.'},
+          {id:'SC06-B05', duration:8, speaker:'eugene', text:'The whale ignores small boats. Even rude little boats.'},
+          {id:'SC06-B06', duration:7, speaker:'ranger', text:'It was a good towel.'},
+          {id:'SC06-B07', duration:13, cue:'trust.change', score:{mr_c:2,nodnarb:2,mikeyyy:2,eugene:2,ranger:2,elza:3}, trust:{mr_c:2,nodnarb:3,mikeyyy:1,eugene:3,ranger:-6,elza:3}, system:'Defense round · Ranger’s towel remains the least ridiculous motive.'}
         ]
       },
       {
-        id:'SC07_SECOND_INTERROGATION', label:'The Contradiction', duration:105,
-        prompt:{label:'The contradiction', text:'Which alibi contradicts the hotel timeline?'},
+        id:'SC07_SECOND_INTERROGATION', label:'The Last Fragment', duration:70,
+        prompt:{label:'Final fragment', text:'What connects the place, the words, and the grievance?'},
         beats:[
-          {id:'SC07-B01', duration:10, speaker:'garmus', target:'mikeyyy', text:'Mikeyyy, give the mirror another look.'},
-          {id:'SC07-B02', duration:14, speaker:'mikeyyy', cue:'clue.show', clue:'mirror_reframe', text:'I saw white in the mirror. It could have been a jacket over the chair. I never saw his face.'},
-          {id:'SC07-B03', duration:11, speaker:'mr_c', target:'eugene', text:'Then EugenE was not there. Only his alibi was.'},
-          {id:'SC07-B04', duration:11, speaker:'eugene', target:'mikeyyy', text:'Or Mikeyyy has discovered doubt is safer than accusation.'},
-          {id:'SC07-B05', duration:15, speaker:'nodnarb', target:'eugene', cue:'clue.show', clue:'key_log', text:'The desk says ten oh five. You claimed to see the red key at nine fifty.'},
-          {id:'SC07-B06', duration:10, speaker:'eugene', text:'I was mistaken about the minute.'},
-          {id:'SC07-B07', duration:10, speaker:'elza', target:'eugene', text:'You were not mistaken. You saw Julian after ten oh five.'},
-          {id:'SC07-B08', duration:12, speaker:'ranger', target:'eugene', text:'Then you left the record playing and the jacket on the chair.'},
-          {id:'SC07-B09', duration:12, cue:'trust.change', score:{mr_c:2,nodnarb:5,mikeyyy:4,eugene:0,ranger:4,elza:12}, trust:{mr_c:-3,nodnarb:6,mikeyyy:-10,eugene:-28,ranger:12,elza:8}, system:'Elza solves the timeline and becomes the agent to catch.'}
+          {id:'SC07-B01', duration:10, speaker:'garmus', cue:'clue.show', clue:'fragment_three', text:'One final word crossed the lagoon before the splash: towel.'},
+          {id:'SC07-B02', duration:8, speaker:'mikeyyy', text:'The towel guy. Ranger. One hundred. Just one hundred this time.'},
+          {id:'SC07-B03', duration:8, speaker:'nodnarb', text:'I took two towels! Unrelated confession. Please keep listening.'},
+          {id:'SC07-B04', duration:8, speaker:'mr_c', target:'ranger', text:'Prime sunbed. Moved towel. Walk me through the exposure.'},
+          {id:'SC07-B05', duration:8, speaker:'eugene', text:'A whale forgives an ocean. A man remembers a sunbed.'},
+          {id:'SC07-B06', duration:7, speaker:'ranger', text:'Circumstantial. Very dramatic.'},
+          {id:'SC07-B07', duration:9, speaker:'elza', target:'ranger', text:'Four calm words. Something moved. Towel. One suspect fits all three.'},
+          {id:'SC07-B08', duration:12, cue:'trust.change', score:{mr_c:4,nodnarb:2,mikeyyy:4,eugene:2,ranger:0,elza:9}, trust:{mr_c:3,nodnarb:1,mikeyyy:2,eugene:2,ranger:-18,elza:8}, system:'Final fragment · Elza connects all three and opens a commanding lead.'}
         ]
       },
       {
-        id:'SC08_FINAL_DEDUCTION', label:'Final Deduction', duration:55,
-        prompt:{label:'Final deduction', text:'Name the murderer—and explain the trick.'},
+        id:'SC08_FINAL_DEDUCTION', label:'The Table Votes', duration:48,
+        prompt:{label:'Final deduction', text:'One name each. Who moved Adrian Vale?'},
         beats:[
-          {id:'SC08-B01', duration:10, cue:'clue.show', clue:'sleeve_reveal'},
-          {id:'SC08-B02', duration:10, speaker:'mr_c', text:'The jacket fooled the mirror. The record fooled the room.'},
-          {id:'SC08-B03', duration:12, speaker:'elza', target:'eugene', text:'But the red key told the truth. EugenE met Julian after ten oh five, then built an alibi that could play by itself.'},
-          {id:'SC08-B04', duration:10, speaker:'garmus', text:'A final name from each of you, if you please.'},
-          {id:'SC08-B05', duration:7, cue:'agents.ballot', system:'Five votes name EugenE. EugenE names Ranger.'},
-          {id:'SC08-B06', duration:6, cue:'trust.change', score:{mr_c:5,nodnarb:5,mikeyyy:5,eugene:0,ranger:5,elza:15}, trust:{mr_c:1,nodnarb:1,mikeyyy:6,eugene:-36,ranger:5,elza:4}}
+          {id:'SC08-B01', duration:8, speaker:'garmus', cue:'clue.show', clue:'verdict', text:'One name each. Aloud, please. It is more civilized aloud.'},
+          {id:'SC08-B02', duration:6, speaker:'mr_c', target:'ranger', text:'Ranger. Best risk-reward at the table.'},
+          {id:'SC08-B03', duration:6, speaker:'nodnarb', target:'ranger', text:'Ranger. Sorry. Please do not move me.'},
+          {id:'SC08-B04', duration:6, speaker:'mikeyyy', target:'ranger', text:'Ranger. One hundred. Still one hundred.'},
+          {id:'SC08-B05', duration:6, speaker:'eugene', target:'ranger', text:'The quiet machine. Ranger.'},
+          {id:'SC08-B06', duration:6, speaker:'elza', target:'ranger', text:'Ranger. Filed.'},
+          {id:'SC08-B07', duration:4, speaker:'ranger', text:'Abstain.'},
+          {id:'SC08-B08', duration:6, cue:'agents.ballot', score:{mr_c:5,nodnarb:5,mikeyyy:5,eugene:5,ranger:0,elza:5}, system:'Agent vote · Five name Ranger. Ranger abstains.'}
         ]
       },
       {
-        id:'SC09_REVEAL', label:'The Reveal', duration:75,
-        prompt:{label:'The verdict', text:'One alibi cannot survive the timeline.'},
+        id:'SC09_REVEAL', label:'The Towel', duration:59,
+        prompt:{label:'The verdict', text:'Five votes. One magnificent grievance.'},
         beats:[
-          {id:'SC09-B01', duration:10, cue:'agents.accuse', target:'eugene', system:'The porch closes around EugenE.'},
-          {id:'SC09-B02', duration:15, speaker:'garmus', text:'EugenE, you gave us too much. You saw Julian’s red key before the hotel had given it to him.'},
-          {id:'SC09-B03', duration:16, speaker:'garmus', text:'A jacket occupied the mirror. Quiet Witness occupied the room. You were free to return to the pool.'},
-          {id:'SC09-B04', duration:9, speaker:'garmus', cue:'reveal', target:'eugene', text:'You are the murderer.'},
-          {id:'SC09-B05', duration:12, speaker:'eugene', text:'You have the trick correct. Julian knew a secret worth more than his silence. I made an unforgivable calculation.'},
-          {id:'SC09-B06', duration:8, cue:'poll.reveal', system:'The room’s prediction is compared with the truth.'},
-          {id:'SC09-B07', duration:12, speaker:'garmus', cue:'prize.award', target:'elza', text:'Elza saw through sound, reflection, and time. The Crystal Prize is hers—delivered to her wallet when she returns to Midnight City.'}
+          {id:'SC09-B01', duration:6, cue:'agents.accuse', target:'ranger', system:'The porch turns toward Ranger.'},
+          {id:'SC09-B02', duration:7, speaker:'garmus', target:'ranger', text:'Ranger. Five votes. One silence. Anything to add?'},
+          {id:'SC09-B03', duration:7, speaker:'ranger', text:'He moved my towel.'},
+          {id:'SC09-B04', duration:7, speaker:'ranger', text:'I moved him.'},
+          {id:'SC09-B05', duration:8, speaker:'garmus', cue:'reveal', target:'ranger', text:'Poetry. Ranger is our murderer.'},
+          {id:'SC09-B06', duration:6, cue:'poll.reveal', system:'The lounge prediction meets the truth.'},
+          {id:'SC09-B07', duration:12, speaker:'garmus', cue:'prize.award', target:'elza', text:'Elza solved it first. The Crystal Prize will reach her wallet when she returns to Midnight City.'},
+          {id:'SC09-B08', duration:6, speaker:'elza', text:'One Crystal. Zero loose ends.'}
         ]
       },
       {
         id:'SC10_AFTERSHOW', label:'The Lounge Remains', duration:30,
         prompt:{label:'Lounge question', text:'When did you know?'},
         beats:[
-          {id:'SC10-B01', duration:14, speaker:'garmus', text:'Splendidly done. The case is closed; the lounge is not. Stay, compare scores, and improve the story in retelling.'},
-          {id:'SC10-B02', duration:8, cue:'garmus.fade', system:'The projection dissolves into the lagoon.'},
-          {id:'SC10-B03', duration:8, cue:'agents.idle', system:'Aftershow · The watching lounge remains open.'}
+          {id:'SC10-B01', duration:9, speaker:'garmus', text:'Ranger: towel duty for one week. Folding, never moving.'},
+          {id:'SC10-B02', duration:6, speaker:'nodnarb', text:'I do not want mine anymore.'},
+          {id:'SC10-B03', duration:9, speaker:'garmus', text:'Case closed. Lounge open. Our next seventh guest should reconsider.'},
+          {id:'SC10-B04', duration:6, cue:'agents.idle', system:'Aftershow · Compare scores, argue your vote, and stay awhile.'}
         ]
       }
     ]
